@@ -53,4 +53,5 @@ const options = {
   apis: [path.join(__dirname, 'routes', `*.${__dirname.includes('dist') ? 'js' : 'ts'}`)],
 };
 
-export const swaggerSpec = swaggerJsdoc(options);
+const swaggerSpec = swaggerJsdoc(options);
+export { swaggerSpec, swaggerSpec as specs };
