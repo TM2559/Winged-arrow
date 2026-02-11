@@ -25,12 +25,17 @@
     "express": "^4.21.0",
     "fast-xml-parser": "^5.3.5",
     "multer": "^2.0.2",
-    "winston": "^3.15.0"
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.15.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/multer": "^2.0.0",
     "@types/node": "^22.9.0",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
     "husky": "^8.0.0",
     "nodemon": "^3.1.7",
     "ts-node": "^10.9.2",

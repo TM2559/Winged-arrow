@@ -1,7 +1,9 @@
 import 'dotenv/config';
 import path from 'path';
 import express, { Request, Response } from 'express';
+import swaggerUi from 'swagger-ui-express';
 import { logger } from './utils/logger';
+import { swaggerSpec } from './swagger';
 import s1000dRoutes from './routes/s1000dRoutes';
 import s2000mRoutes from './routes/s2000mRoutes';
 
@@ -10,6 +12,11 @@ const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
 app.use(express.json());
+
+// ---------------------------------------------------------------------------
+// Swagger API documentation
+// ---------------------------------------------------------------------------
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // ---------------------------------------------------------------------------
 // Mock viewer (static)

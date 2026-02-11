@@ -2,9 +2,9 @@ import { Request, Response } from 'express';
 import { logger } from '../utils/logger';
 import { parseS1000DXml } from '../utils/xmlParser';
 import { getWorkOrderByNum } from '../services/maximoClient';
-
-const PORT = Number(process.env.PORT) || 3000;
-const VIEWER_BASE = `http://localhost:${PORT}/viewer/index.html`;
+import { buildViewerUrl } from '../services/s1000dService';
+import type { S1000DLinkQuery } from '../schemas/s1000dSchema';
+import type { ValidatedRequest } from '../middleware/validateRequest';
 
 /** Response shape for S1000D link by work order */
 interface WorkOrderLinkData {
@@ -12,25 +12,20 @@ interface WorkOrderLinkData {
   asset: string;
   dmc: string;
   viewerUrl: string;
+  serialNumber?: string;
 }
 
 /**
- * GET /link?wo=WO1001
- * Returns S1000D viewer link data for the given Work Order.
+ * GET /link?wo=WO1001&sn=SERIAL (sn optional)
+ * Query validated by middleware. Returns S1000D viewer link data for the given Work Order.
+ * If serialNumber (sn) is provided, it is appended to the viewer URL for applicability.
  * Uses Maximo client (MOCK or REAL per APP_MODE).
  */
-export async function getLinkForWorkOrder(req: Request, res: Response): Promise<void> {
-  const wo = typeof req.query.wo === 'string' ? req.query.wo.trim() : undefined;
+export async function getLinkForWorkOrder(req: ValidatedRequest, res: Response): Promise<void> {
+  const { wo, sn } = req.validatedQuery as S1000DLinkQuery;
+  const serialNumber = sn?.trim() || undefined;
 
-  logger.info(`S1000D link request: wo=${wo ?? '(missing)'}`);
-
-  if (!wo) {
-    res.status(400).json({
-      error: 'Missing required query parameter: wo',
-      example: '/api/v1/s1000d/link?wo=WO1001',
-    });
-    return;
-  }
+  logger.info(`S1000D link request: wo=${wo}, sn=${serialNumber ?? '(none)'}`);
 
   const row = await getWorkOrderByNum(wo);
 
@@ -39,7 +34,7 @@ export async function getLinkForWorkOrder(req: Request, res: Response): Promise<
     return;
   }
 
-  const viewerUrl = `${VIEWER_BASE}?dmc=${encodeURIComponent(row.dmc)}&model=${encodeURIComponent(row.model)}`;
+  const viewerUrl = buildViewerUrl(row.dmc, row.model, serialNumber);
 
   const body: WorkOrderLinkData = {
     workOrder: wo,
@@ -47,6 +42,9 @@ export async function getLinkForWorkOrder(req: Request, res: Response): Promise<
     dmc: row.dmc,
     viewerUrl,
   };
+  if (serialNumber) {
+    body.serialNumber = serialNumber;
+  }
 
   res.status(200).json(body);
 }
@@ -80,7 +78,7 @@ export function uploadS1000DXml(req: Request, res: Response): void {
   try {
     const { dmc, title } = parseS1000DXml(xmlString);
     const model = modelFromDmc(dmc);
-    const viewerUrl = `${VIEWER_BASE}?dmc=${encodeURIComponent(dmc)}&model=${encodeURIComponent(model)}`;
+    const viewerUrl = buildViewerUrl(dmc, model);
 
     res.status(200).json({
       dmc,

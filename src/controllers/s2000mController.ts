@@ -1,35 +1,21 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { logger } from '../utils/logger';
 import { processProvisioningData } from '../services/s2000mService';
+import type { S2000MImportBody } from '../schemas/s2000mSchema';
+import type { ValidatedRequest } from '../middleware/validateRequest';
 
 /**
  * POST /api/v1/s2000m/import
- * Accepts S2000M provisioning data, maps to Maximo Item Master, and simulates
- * sending the payload to Maximo (logs only for now).
+ * Accepts S2000M provisioning data (validated by middleware), maps to Maximo Item Master,
+ * and simulates sending the payload to Maximo (logs only for now).
  */
-export function importProvisioningData(req: Request, res: Response): void {
-  const body = req.body;
+export function importProvisioningData(req: ValidatedRequest, res: Response): void {
+  const body = req.validatedBody as S2000MImportBody;
 
   logger.info('S2000M import request received');
-  logger.info(`Received data: ${JSON.stringify(body ?? '(empty)')}`);
-
-  if (!body) {
-    res.status(400).json({
-      error: 'Missing request body',
-      example: { parts: [{ partNumber: '...', description: '...', unitOfMeasure: '...' }] },
-    });
-    return;
-  }
+  logger.info(`Received data: ${JSON.stringify(body)}`);
 
   const items = processProvisioningData(body);
-
-  if (items.length === 0) {
-    res.status(400).json({
-      error: 'No parts to import',
-      hint: 'Send an array of parts or an object with a "parts" array.',
-    });
-    return;
-  }
 
   // Simulate Maximo API payload (log only; no actual API call yet)
   const maximoPayload = { item: items };

@@ -117,6 +117,7 @@
 
       var dmc = params.dmc || '';
       var model = params.model || '';
+      var serialNumber = params.sn || '';
       var hasDmc = dmc.length > 0;
 
       var content = document.getElementById('content');
@@ -140,6 +141,10 @@
           (model ? '<div class="param-row">' +
             '<span class="label">Model</span>' +
             '<span class="value">' + escapeHtml(model) + '</span>' +
+          '</div>' : '') +
+          (serialNumber ? '<div class="param-row">' +
+            '<span class="label">Serial No.</span>' +
+            '<span class="value">' + escapeHtml(serialNumber) + '</span>' +
           '</div>' : '') +
         '</div>';
 
