@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# After commit: refresh DEVELOPMENT_CONTEXT.md with this commit's message and current structure
+npm run update-context

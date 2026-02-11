@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dmodule xmlns="http://www.s1000d.org/s1000d_3-0">
+  <identAndStatusSection>
+    <dmAddress>
+      <dmIdent>
+        <dmCode>DMC-SKODA-BRZDA-MAIN-01</dmCode>
+        <issueInfo issueNumber="001" inWork="001"/>
+        <language languageIsoCode="en"/>
+        <techName>Main Brake System - Description and Operation</techName>
+      </dmIdent>
+    </dmAddress>
+    <dmStatus>
+      <security securityClassification="01"/>
+      <dataRestrictions type="unclassified"/>
+    </dmStatus>
+  </identAndStatusSection>
+  <content>
+    <description>
+      <title>Main Brake System</title>
+      <para id="p1">This data module describes the main brake system for the 109E platform.</para>
+    </description>
+  </content>
+</dmodule>

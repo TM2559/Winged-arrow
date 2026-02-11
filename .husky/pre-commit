@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Reminder: update "Current Goals" (section 6) in DEVELOPMENT_CONTEXT.md when goals change.
+# (DEVELOPMENT_CONTEXT.md is auto-updated after each commit via post-commit; run 'npm run update-context' to refresh and stage it before committing if desired.)
+echo ""
+echo "→ Remember to update the 'Current Goals' section in DEVELOPMENT_CONTEXT.md if your goals changed."

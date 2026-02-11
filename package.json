@@ -7,23 +7,34 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "nodemon --exec ts-node src/server.ts",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "update-context": "node scripts/update-context.js",
+    "prepare": "husky install"
   },
-  "keywords": ["skoda", "transportation", "ips", "maximo"],
+  "keywords": [
+    "skoda",
+    "transportation",
+    "ips",
+    "maximo"
+  ],
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "express": "^4.21.0",
-    "dotenv": "^16.4.5",
     "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "fast-xml-parser": "^5.3.5",
+    "multer": "^2.0.2",
     "winston": "^3.15.0"
   },
   "devDependencies": {
-    "typescript": "^5.6.3",
-    "@types/node": "^22.9.0",
     "@types/express": "^5.0.0",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.9.0",
+    "husky": "^8.0.0",
+    "nodemon": "^3.1.7",
     "ts-node": "^10.9.2",
-    "nodemon": "^3.1.7"
+    "typescript": "^5.6.3"
   },
   "engines": {
     "node": ">=18.0.0"
