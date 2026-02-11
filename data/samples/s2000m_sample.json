@@ -1,0 +1,24 @@
+{
+  "parts": [
+    {
+      "partNumber": "BP-109E-001",
+      "description": "Brake Pad, disc brake, front axle",
+      "unitOfMeasure": "EA"
+    },
+    {
+      "partNumber": "WB-109E-012",
+      "description": "Wheel Bolt M20x1.5, grade 10.9",
+      "unitOfMeasure": "EA"
+    },
+    {
+      "partNumber": "BR-109E-002",
+      "description": "Brake Rotor, cast iron, 640mm diameter",
+      "unitOfMeasure": "EA"
+    },
+    {
+      "partNumber": "BL-109E-005",
+      "description": "Brake Lining set, tread brake unit",
+      "unitOfMeasure": "SET"
+    }
+  ]
+}

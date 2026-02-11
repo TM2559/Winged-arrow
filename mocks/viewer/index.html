@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPS Viewer – S1000D Mock</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #1a1d21;
+      color: #e4e6e8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: 100%;
+      max-width: 480px;
+      background: #25282c;
+      border: 1px solid #3a3e44;
+      border-radius: 8px;
+      padding: 28px 32px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    }
+    .card h1 {
+      margin: 0 0 8px 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #9ca3af;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .card .message {
+      margin: 16px 0 0 0;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .card .message.error {
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      padding: 14px 16px;
+      border-radius: 6px;
+    }
+    .card .message.success {
+      color: #86efac;
+      background: rgba(134, 239, 172, 0.08);
+      border: 1px solid rgba(134, 239, 172, 0.25);
+      padding: 14px 16px;
+      border-radius: 6px;
+    }
+    .params {
+      margin-top: 20px;
+      display: grid;
+      gap: 12px;
+    }
+    .param-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: #1a1d21;
+      border-radius: 6px;
+      border: 1px solid #2d3136;
+    }
+    .param-row .label {
+      font-size: 0.8rem;
+      color: #6b7280;
+      min-width: 72px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .param-row .value {
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.9rem;
+      color: #e4e6e8;
+      word-break: break-all;
+    }
+    .brand {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #3a3e44;
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>IPS Viewer</h1>
+    <p style="margin:0; color:#9ca3af; font-size:0.9rem;">S1000D Data Module Mock</p>
+
+    <div id="content"></div>
+
+    <div class="brand">Škoda Transportation IPS Integration — Mock</div>
+  </div>
+
+  <script>
+    (function () {
+      var params = {};
+      var query = window.location.search.slice(1);
+      if (query) {
+        query.split('&').forEach(function (pair) {
+          var i = pair.indexOf('=');
+          if (i > 0) {
+            params[decodeURIComponent(pair.slice(0, i))] =
+              decodeURIComponent((pair.slice(i + 1) || '').replace(/\+/g, ' '));
+          }
+        });
+      }
+
+      var dmc = params.dmc || '';
+      var model = params.model || '';
+      var hasDmc = dmc.length > 0;
+
+      var content = document.getElementById('content');
+
+      if (!hasDmc) {
+        content.innerHTML =
+          '<div class="message error">' +
+          'Missing required parameter: <strong>dmc</strong> (S1000D Data Module Code). ' +
+          'Use: <code style="background:#2d3136; padding:2px 6px; border-radius:4px;">?dmc=...&amp;model=...</code>' +
+          '</div>';
+        return;
+      }
+
+      content.innerHTML =
+        '<div class="message success">Loading S1000D Data Module...</div>' +
+        '<div class="params">' +
+          '<div class="param-row">' +
+            '<span class="label">DMC</span>' +
+            '<span class="value">' + escapeHtml(dmc) + '</span>' +
+          '</div>' +
+          (model ? '<div class="param-row">' +
+            '<span class="label">Model</span>' +
+            '<span class="value">' + escapeHtml(model) + '</span>' +
+          '</div>' : '') +
+        '</div>';
+
+      function escapeHtml(s) {
+        var div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+      }
+    })();
+  </script>
+</body>
+</html>
