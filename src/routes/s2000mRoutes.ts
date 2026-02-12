@@ -10,7 +10,11 @@ const router = Router();
  * /api/v1/s2000m/import:
  *   post:
  *     summary: Import S2000M provisioning data
- *     description: Accepts S2000M provisioning data (parts array), maps to Maximo Item Master, and simulates sending the payload to Maximo (logs only for now).
+ *     description: |
+ *       Accepts a JSON body with a root property `parts`: an array of part objects.
+ *       Each part must have `partNumber` (string, min 3 chars) and `description` (string).
+ *       Optional: `unitOfMeasure` (string, default "PC"), `quantity` (positive number, default 1).
+ *       At least one part is required. Validated by Zod (s2000mImportBodySchema).
  *     tags:
  *       - S2000M
  *     requestBody:
@@ -19,6 +23,11 @@ const router = Router();
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/S2000MImportBody'
+ *           example:
+ *             parts:
+ *               - partNumber: "SKD-123"
+ *                 description: "Test Part"
+ *                 quantity: 5
  *     responses:
  *       200:
  *         description: Import successful (payload logged; Maximo API integration pending)

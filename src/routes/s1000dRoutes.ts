@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { getLinkForWorkOrder, uploadS1000DXml } from '../controllers/s1000dController';
+import { getLinkForWorkOrder, uploadDataModule, uploadS1000DXml } from '../controllers/s1000dController';
 import { validateQuery } from '../middleware/validateRequest';
 import { s1000dLinkQuerySchema } from '../schemas/s1000dSchema';
 
@@ -57,12 +57,16 @@ const router = Router();
  * /api/v1/s1000d/upload:
  *   post:
  *     summary: Upload S1000D XML
- *     description: Accepts an S1000D XML file (multipart/form-data). Returns the generated Navigator (viewer) URL based on the DMC found in the XML.
+ *     description: Accepts an S1000D data module XML (application/xml body or multipart/form-data file). Returns extracted metadata (dmCode, issueDate, techName, infoName) and the generated Viewer URL.
  *     tags:
  *       - S1000D
  *     requestBody:
  *       required: true
  *       content:
+ *         application/xml:
+ *           schema:
+ *             type: string
+ *             description: S1000D data module XML (Content-Type application/xml)
  *         multipart/form-data:
  *           schema:
  *             type: object
@@ -73,22 +77,28 @@ const router = Router();
  *                 description: S1000D XML file (field name "xml" or "file")
  *     responses:
  *       200:
- *         description: Parsed DMC and viewer URL
+ *         description: Extracted metadata and viewer URL
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 dmc:
+ *                 dmCode:
  *                   type: string
- *                 title:
+ *                   description: Data Module Code
+ *                 issueDate:
  *                   type: string
- *                 model:
+ *                   description: Issue date
+ *                 techName:
  *                   type: string
+ *                   description: Technical Name (dmTitle)
+ *                 infoName:
+ *                   type: string
+ *                   description: Info Name (dmTitle)
  *                 viewerUrl:
  *                   type: string
  *       400:
- *         description: No file uploaded or invalid S1000D XML
+ *         description: Missing body/file or invalid S1000D XML
  */
 
 const upload = multer({
@@ -104,6 +114,16 @@ const upload = multer({
 });
 
 router.get('/link', validateQuery(s1000dLinkQuerySchema), getLinkForWorkOrder);
-router.post('/upload', upload.any(), uploadS1000DXml);
+router.post(
+  '/upload',
+  (req, res, next) => {
+    if (req.is('application/xml') && typeof req.body === 'string') {
+      return uploadDataModule(req, res);
+    }
+    next();
+  },
+  upload.any(),
+  uploadS1000DXml
+);
 
 export default router;

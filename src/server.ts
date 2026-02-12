@@ -12,6 +12,7 @@ const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
 app.use(express.json());
+app.use(express.text({ type: 'application/xml' }));
 
 // ---------------------------------------------------------------------------
 // Swagger API documentation (after express.json, before app.listen)

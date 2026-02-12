@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { logger } from '../utils/logger';
-import { parseS1000DXml } from '../utils/xmlParser';
+import { parseDataModule } from '../utils/s1000dParser';
 import { getWorkOrderByNum } from '../services/maximoClient';
 import { buildViewerUrl } from '../services/s1000dService';
 import type { S1000DLinkQuery } from '../schemas/s1000dSchema';
@@ -49,22 +49,62 @@ export async function getLinkForWorkOrder(req: ValidatedRequest, res: Response):
   res.status(200).json(body);
 }
 
+function looksLikeXml(value: string): boolean {
+  const t = value.trimStart();
+  return t.startsWith('<?xml') || t.startsWith('<');
+}
+
 /** Derive a short model identifier from DMC (e.g. first segment or default). */
-function modelFromDmc(dmc: string): string {
-  const part = dmc.split(/[-_]/)[0];
+function modelFromDmc(dmCode: string): string {
+  const part = dmCode.split(/[-_]/)[0];
   return part && part !== 'DMC' ? part : 'default';
 }
 
 /**
- * POST /upload
- * Accepts an S1000D XML file (multipart/form-data, field "xml" or "file").
- * Returns the generated Navigator (viewer) URL based on the DMC found in the XML.
+ * POST /upload (application/xml body)
+ * Receives XML in req.body (parsed by express.text({ type: 'application/xml' })).
+ * Uses the parser to get metadata and returns JSON with extracted data and a generated Viewer URL.
+ */
+export function uploadDataModule(req: Request, res: Response): void {
+  const xmlContent = req.body;
+  if (typeof xmlContent !== 'string' || !xmlContent.trim()) {
+    res.status(400).json({
+      error: 'Missing XML body',
+      hint: 'Send a request with Content-Type: application/xml and the S1000D data module XML as body.',
+    });
+    return;
+  }
+
+  logger.info('S1000D upload: XML body (application/xml)');
+
+  try {
+    const metadata = parseDataModule(xmlContent);
+    const model = modelFromDmc(metadata.dmCode);
+    const viewerUrl = buildViewerUrl(metadata.dmCode, model);
+
+    res.status(200).json({
+      ...metadata,
+      viewerUrl,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to parse S1000D XML';
+    logger.warn(`S1000D upload parse error: ${message}`);
+    res.status(400).json({
+      error: 'Invalid S1000D XML',
+      detail: message,
+    });
+  }
+}
+
+/**
+ * POST /upload (multipart file)
+ * Accepts an S1000D XML file via multipart/form-data. Uses the same parser and returns extracted data + viewer URL.
  */
 export function uploadS1000DXml(req: Request, res: Response): void {
   const multerReq = req as Request & { file?: Express.Multer.File; files?: Express.Multer.File[] };
   const file = multerReq.files?.[0] ?? multerReq.file;
 
-  if (!file || !file.buffer) {
+  if (!file?.buffer) {
     res.status(400).json({
       error: 'No file uploaded',
       hint: 'Send multipart/form-data with field "xml" or "file" containing an S1000D XML file.',
@@ -76,14 +116,12 @@ export function uploadS1000DXml(req: Request, res: Response): void {
   logger.info(`S1000D upload: ${file.originalname}, size=${file.size}`);
 
   try {
-    const { dmc, title } = parseS1000DXml(xmlString);
-    const model = modelFromDmc(dmc);
-    const viewerUrl = buildViewerUrl(dmc, model);
+    const metadata = parseDataModule(xmlString);
+    const model = modelFromDmc(metadata.dmCode);
+    const viewerUrl = buildViewerUrl(metadata.dmCode, model);
 
     res.status(200).json({
-      dmc,
-      title,
-      model,
+      ...metadata,
       viewerUrl,
     });
   } catch (err) {
