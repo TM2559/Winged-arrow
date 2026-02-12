@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { importProvisioningData } from '../controllers/s2000mController';
-import { validateBody } from '../middleware/validateRequest';
+import { validateResource } from '../middleware/validateRequest';
 import { s2000mImportBodySchema } from '../schemas/s2000mSchema';
 
 const router = Router();
@@ -42,6 +42,6 @@ const router = Router();
  *         description: Missing body, validation failed, or no parts to import
  */
 
-router.post('/import', validateBody(s2000mImportBodySchema), importProvisioningData);
+router.post('/import', validateResource(s2000mImportBodySchema), importProvisioningData);
 
 export default router;

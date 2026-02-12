@@ -1,14 +1,11 @@
 import { z } from 'zod';
 
-const S2000M_UNITS = ['KS', 'SET', 'M', 'KG'] as const;
-
 /** Single S2000M part for import validation */
 export const s2000mPartSchema = z.object({
   partNumber: z.string().min(3, 'partNumber must be at least 3 characters'),
-  description: z.string().max(100, 'description must be at most 100 characters'),
-  unitOfMeasure: z.enum(S2000M_UNITS, {
-    message: `unitOfMeasure must be one of: ${S2000M_UNITS.join(', ')}`,
-  }),
+  description: z.string().min(1, 'description is required'),
+  unitOfMeasure: z.string().optional().default('PC'),
+  quantity: z.number().positive('quantity must be positive').default(1),
 });
 
 /** Request body for S2000M part import (object with parts array) */

@@ -35,6 +35,13 @@ export function validateBody<T extends ZodType>(schema: T) {
 }
 
 /**
+ * Middleware that validates req.body with the given Zod schema (resource payload).
+ * On success, sets req.validatedBody to the parsed value and calls next().
+ * On failure, sends 400 with { error: 'Validation failed', details: [...] }.
+ */
+export const validateResource = validateBody;
+
+/**
  * Returns middleware that validates req.query with the given Zod schema.
  * On success, sets req.validatedQuery to the parsed value and calls next().
  * On failure, sends 400 with { error: 'Validation failed', details: [...] }.

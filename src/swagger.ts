@@ -14,7 +14,7 @@ const options = {
       schemas: {
         S2000MPart: {
           type: 'object',
-          required: ['partNumber', 'description', 'unitOfMeasure'],
+          required: ['partNumber', 'description'],
           properties: {
             partNumber: {
               type: 'string',
@@ -24,14 +24,19 @@ const options = {
             },
             description: {
               type: 'string',
-              maxLength: 100,
-              description: 'Part description (max 100 characters)',
+              description: 'Part description',
               example: 'Brake Pad, disc brake, front axle',
             },
             unitOfMeasure: {
               type: 'string',
-              enum: ['KS', 'SET', 'M', 'KG'],
-              description: 'S2000M unit of measure',
+              default: 'PC',
+              description: 'Unit of measure (optional, default PC)',
+            },
+            quantity: {
+              type: 'number',
+              minimum: 1,
+              default: 1,
+              description: 'Quantity (positive number, default 1)',
             },
           },
         },
