@@ -1,9 +1,23 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { logger } from '../utils/logger';
 import { processProvisioningData } from '../services/s2000mService';
 import { prisma } from '../lib/prisma';
 import type { S2000MImportBody } from '../schemas/s2000mSchema';
 import type { ValidatedRequest } from '../middleware/validateRequest';
+
+/**
+ * GET /api/s2000m
+ * Returns all spare parts (S2000M) for use in the Native Viewer parts sheet.
+ */
+export async function getParts(_req: Request, res: Response): Promise<void> {
+  try {
+    const parts = await prisma.sparePart.findMany({ orderBy: { partNumber: 'asc' } });
+    res.json({ parts });
+  } catch (err) {
+    logger.error('getParts error', err);
+    res.status(500).json({ error: 'Failed to load spare parts' });
+  }
+}
 
 /**
  * POST /api/v1/s2000m/import

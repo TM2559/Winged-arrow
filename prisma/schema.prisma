@@ -1,12 +1,14 @@
 // Prisma schema for S1000D/S2000M Middleware
-// SQLite for development
+// PostgreSQL (Vercel-friendly with connection pooling)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
 model DataModule {

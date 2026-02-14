@@ -1,9 +1,11 @@
 import { Router } from 'express';
-import { importProvisioningData } from '../controllers/s2000mController';
+import { getParts, importProvisioningData } from '../controllers/s2000mController';
 import { validateResource } from '../middleware/validateRequest';
 import { s2000mImportBodySchema } from '../schemas/s2000mSchema';
 
 const router = Router();
+
+router.get('/', getParts);
 
 /**
  * @openapi

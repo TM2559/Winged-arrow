@@ -11,6 +11,7 @@ import feedbackRouter from './routes/feedbackRoutes';
 import { getViewerByDmc, getViewerByDmCode } from './controllers/viewerController';
 import { getDashboard } from './controllers/dashboardController';
 import { getMaximoMock } from './controllers/maximoMockController';
+import { search } from './controllers/searchController';
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -58,6 +59,13 @@ app.get('/viewer/:dmCode', getViewerByDmCode);
 // Mock viewer (static: /viewer, /viewer/index.html, etc.)
 // ---------------------------------------------------------------------------
 app.use('/viewer', express.static(path.join(__dirname, '../mocks/viewer')));
+
+// ---------------------------------------------------------------------------
+// Search API: GET /api/search?q=...
+// ---------------------------------------------------------------------------
+app.get('/api/search', (req, res, next) => {
+  search(req, res).catch(next);
+});
 
 // ---------------------------------------------------------------------------
 // Health check
