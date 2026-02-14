@@ -6,7 +6,9 @@ import { logger } from './utils/logger';
 import { specs } from './swagger';
 import s1000dRoutes from './routes/s1000dRoutes';
 import s2000mRoutes from './routes/s2000mRoutes';
+import s3000lRouter from './routes/s3000lRoutes';
 import { getViewerByDmc, getViewerByDmCode } from './controllers/viewerController';
+import { getDashboard } from './controllers/dashboardController';
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -21,7 +23,14 @@ app.use(express.text({ type: 'application/xml' }));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // ---------------------------------------------------------------------------
-// Native viewer: GET /viewer?dmc=... returns xmlContent as text/plain (or 404)
+// Dashboard: GET / – manuals (S1000D) and spare parts (S2000M) with Open Viewer links
+// ---------------------------------------------------------------------------
+app.get('/', (req, res, next) => {
+  getDashboard(req, res).catch(next);
+});
+
+// ---------------------------------------------------------------------------
+// Native viewer: GET /viewer?dmc=... returns styled HTML manual (or 404)
 // ---------------------------------------------------------------------------
 app.get('/viewer', (req, res, next) => {
   if (req.query.dmc) {
@@ -53,6 +62,7 @@ app.get('/health', (_req: Request, res: Response): void => {
 // ---------------------------------------------------------------------------
 app.use('/api/s1000d', s1000dRoutes);
 app.use('/api/s2000m', s2000mRoutes);
+app.use('/api/s3000l', s3000lRouter);
 
 // ---------------------------------------------------------------------------
 // Start server

@@ -3,11 +3,13 @@ import { XMLParser } from 'fast-xml-parser';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 
-/** Parsed viewer content from S1000D XML (title, subtitle, steps). */
+/** Parsed viewer content from S1000D XML (title, subtitle, steps, warnings, cautions). */
 interface ViewerContent {
   title: string;
   subtitle: string;
   steps: string[];
+  warnings: string[];
+  cautions: string[];
 }
 
 /**
@@ -44,8 +46,16 @@ function parseViewerContent(xmlContent: string): ViewerContent {
   }
 
   const steps = collectProceduralSteps(dmodule);
+  const warnings = collectTextFromTag(dmodule, 'warning');
+  const cautions = collectTextFromTag(dmodule, 'caution');
 
-  return { title: title || 'S1000D Data Module', subtitle, steps };
+  return {
+    title: title || 'S1000D Data Module',
+    subtitle,
+    steps,
+    warnings,
+    cautions,
+  };
 }
 
 function findPath(root: Record<string, unknown> | undefined, path: string[]): unknown {
@@ -102,6 +112,53 @@ function extractParaText(stepNode: unknown): string {
   return '';
 }
 
+/** Recursively find all elements with tag name (e.g. warning, caution) and extract their text (para or #text). */
+function collectTextFromTag(node: unknown, tagName: string): string[] {
+  const out: string[] = [];
+  if (node == null) return out;
+
+  if (typeof node === 'object' && !Array.isArray(node)) {
+    const obj = node as Record<string, unknown>;
+    const child = obj[tagName];
+    if (child !== undefined) {
+      const nodes = Array.isArray(child) ? child : [child];
+      for (const n of nodes) {
+        const text = extractBlockText(n);
+        if (text) out.push(text);
+      }
+    }
+    for (const key of Object.keys(obj)) {
+      if (key === tagName) continue;
+      out.push(...collectTextFromTag(obj[key], tagName));
+    }
+  }
+
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      out.push(...collectTextFromTag(item, tagName));
+    }
+  }
+  return out;
+}
+
+function extractBlockText(block: unknown): string {
+  if (block == null) return '';
+  if (typeof block === 'string') return block.trim();
+  if (typeof block !== 'object') return '';
+  const obj = block as Record<string, unknown>;
+  const para = obj.para;
+  if (typeof para === 'string') return para.trim();
+  if (Array.isArray(para)) {
+    return para.map((p) => (typeof p === 'string' ? p : (p as Record<string, unknown>)['#text'] as string)?.trim() ?? '').filter(Boolean).join(' ');
+  }
+  if (para && typeof para === 'object') {
+    const t = (para as Record<string, unknown>)['#text'];
+    if (typeof t === 'string') return t.trim();
+  }
+  const text = obj['#text'];
+  return typeof text === 'string' ? text.trim() : '';
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -111,18 +168,36 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
+const PLACEHOLDER_GRAPHIC_URL = 'https://placehold.co/600x400?text=Technical+Drawing';
+
 /**
  * Builds a full HTML5 document with Škoda branding for the manual.
+ * Includes placeholder graphic, warning/caution boxes, and link back to dashboard.
  */
 function buildViewerHtml(dmCode: string, content: ViewerContent): string {
   const title = content.title || dmCode;
   const subtitle = content.subtitle;
   const steps = content.steps;
+  const warnings = content.warnings;
+  const cautions = content.cautions;
 
   const stepsHtml =
     steps.length > 0
       ? `<ol class="steps">${steps.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}</ol>`
       : '<p class="no-steps">No procedural steps found in this data module.</p>';
+
+  const warningsHtml =
+    warnings.length > 0
+      ? warnings
+          .map((w) => `<div class="warning-box">${escapeHtml(w)}</div>`)
+          .join('')
+      : '';
+  const cautionsHtml =
+    cautions.length > 0
+      ? cautions
+          .map((c) => `<div class="caution-box">${escapeHtml(c)}</div>`)
+          .join('')
+      : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -133,18 +208,19 @@ function buildViewerHtml(dmCode: string, content: ViewerContent): string {
   <style>
     * { box-sizing: border-box; }
     body {
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       margin: 0;
       padding: 0;
       color: #333;
       line-height: 1.5;
-      background: #f8f8f8;
+      background: #f0f2f5;
     }
     .header {
       background: #4ba82e;
       color: #fff;
       padding: 1.25rem 2rem;
       margin-bottom: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     .header h1 {
       margin: 0;
@@ -172,10 +248,34 @@ function buildViewerHtml(dmCode: string, content: ViewerContent): string {
     .toolbar a:hover {
       text-decoration: underline;
     }
+    .graphic-placeholder {
+      width: 100%;
+      max-width: 600px;
+      height: auto;
+      display: block;
+      margin: 0 0 1.5rem;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      background: #f5f5f5;
+    }
     .dmc {
       font-size: 0.875rem;
       color: #666;
       margin-bottom: 1rem;
+    }
+    .warning-box {
+      background: #ffe6e6;
+      border-left: 5px solid red;
+      padding: 10px;
+      margin-bottom: 1rem;
+      border-radius: 0 6px 6px 0;
+    }
+    .caution-box {
+      background: #fffbe6;
+      border-left: 5px solid orange;
+      padding: 10px;
+      margin-bottom: 1rem;
+      border-radius: 0 6px 6px 0;
     }
     .steps {
       padding-left: 1.5rem;
@@ -198,9 +298,12 @@ function buildViewerHtml(dmCode: string, content: ViewerContent): string {
   </header>
   <div class="container">
     <div class="toolbar">
-      <a href="/viewer/index.html">← Back to Dashboard</a>
+      <a href="/">← Back to Dashboard</a>
     </div>
     <p class="dmc"><strong>DMC:</strong> ${escapeHtml(dmCode)}</p>
+    <img class="graphic-placeholder" src="${PLACEHOLDER_GRAPHIC_URL}" alt="Technical drawing placeholder" />
+    ${warningsHtml}
+    ${cautionsHtml}
     ${stepsHtml}
   </div>
 </body>

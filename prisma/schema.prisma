@@ -10,19 +10,35 @@ datasource db {
 }
 
 model DataModule {
-  id         Int      @id @default(autoincrement())
-  dmCode     String   @unique // Full DMC string (e.g. "SKODA-A-...")
-  techName   String?  // From <techName>
-  issueDate  String?  // Stored as string
-  xmlContent String   // Entire raw XML body for viewer
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                Int               @id @default(autoincrement())
+  dmCode            String            @unique // Full DMC string (e.g. "SKODA-A-...")
+  techName          String?           // From <techName>
+  issueDate         String?           // Stored as string
+  xmlContent        String            // Entire raw XML body for viewer
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  maintenanceTasks  MaintenanceTask[]
 }
 
 model SparePart {
-  id         Int    @id @default(autoincrement())
-  partNumber String @unique
-  name       String
-  quantity   Int
-  unit       String?
+  id                Int               @id @default(autoincrement())
+  partNumber        String            @unique
+  name              String
+  quantity          Int
+  unit              String?
+  maintenanceTasks  MaintenanceTask[]
+}
+
+// S3000L Maintenance Logic: Task -> Method (S1000D) -> Material (S2000M)
+model MaintenanceTask {
+  id          Int          @id @default(autoincrement())
+  taskCode    String       @unique // e.g. "T-SKD-BR-001", "TASK-BRK-REPLACE"
+  description String       // e.g. "Brake Pad Replacement"
+  interval    String       // e.g. "10000 km" or "6 Months"
+  personnel   String       // e.g. "Mechanic (Level 2)"
+  duration    Float        // hours, e.g. 1.5
+  dmId        Int?         // Link to S1000D Data Module (method)
+  partId      Int?         // Link to S2000M Spare Part (material)
+  dm          DataModule?  @relation(fields: [dmId], references: [id])
+  part        SparePart?   @relation(fields: [partId], references: [id])
 }
