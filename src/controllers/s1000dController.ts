@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { logger } from '../utils/logger';
-import { parseDataModule } from '../utils/s1000dParser';
+import { parseDataModule, extractFigureContent } from '../utils/s1000dParser';
 import { getWorkOrderByNum } from '../services/maximoClient';
 import { buildViewerUrl } from '../services/s1000dService';
 import { prisma } from '../lib/prisma';
@@ -82,6 +82,8 @@ export async function uploadDataModule(req: Request, res: Response): Promise<voi
     const metadata = parseDataModule(xmlContent);
     const issueDate = metadata.issueDate?.trim() || null;
     const techName = metadata.techName?.trim() || null;
+    // Preserve <figure>/<svg> content for viewer: extract raw SVG (ids preserved for interaction)
+    const illustrationSvg = extractFigureContent(xmlContent) ?? undefined;
 
     const saved = await prisma.dataModule.upsert({
       where: { dmCode: metadata.dmCode },
@@ -90,11 +92,13 @@ export async function uploadDataModule(req: Request, res: Response): Promise<voi
         issueDate,
         techName,
         xmlContent,
+        illustrationSvg,
       },
       update: {
         issueDate,
         techName,
         xmlContent,
+        illustrationSvg,
       },
     });
 
@@ -141,6 +145,8 @@ export async function uploadS1000DXml(req: Request, res: Response): Promise<void
     const metadata = parseDataModule(xmlString);
     const issueDate = metadata.issueDate?.trim() || null;
     const techName = metadata.techName?.trim() || null;
+    // Preserve <figure>/<svg> content for viewer: extract raw SVG (ids preserved for interaction)
+    const illustrationSvg = extractFigureContent(xmlString) ?? undefined;
 
     const saved = await prisma.dataModule.upsert({
       where: { dmCode: metadata.dmCode },
@@ -149,11 +155,13 @@ export async function uploadS1000DXml(req: Request, res: Response): Promise<void
         issueDate,
         techName,
         xmlContent: xmlString,
+        illustrationSvg,
       },
       update: {
         issueDate,
         techName,
         xmlContent: xmlString,
+        illustrationSvg,
       },
     });
 

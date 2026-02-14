@@ -2,14 +2,17 @@ import { Request, Response } from 'express';
 import { XMLParser } from 'fast-xml-parser';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
+import { extractFigureContent } from '../utils/s1000dParser';
 
-/** Parsed viewer content from S1000D XML (title, subtitle, steps as HTML, warnings, cautions). */
+/** Parsed viewer content from S1000D XML (title, subtitle, steps as HTML, warnings, cautions, inline figure). */
 interface ViewerContent {
   title: string;
   subtitle: string;
   stepsHtml: string[];
   warnings: string[];
   cautions: string[];
+  /** Raw <figure> inner content (e.g. <svg>...) from XML when not in illustrationSvg. */
+  figureHtml: string | null;
 }
 
 /**
@@ -48,6 +51,8 @@ function parseViewerContent(xmlContent: string): ViewerContent {
   const stepsHtml = collectProceduralStepsHtml(dmodule);
   const warnings = collectTextFromTag(dmodule, 'warning');
   const cautions = collectTextFromTag(dmodule, 'caution');
+  // Extract raw <figure> content so inline SVG is output as-is (ids preserved for interaction)
+  const figureHtml = extractFigureContent(xmlContent);
 
   return {
     title: title || 'S1000D Data Module',
@@ -55,6 +60,7 @@ function parseViewerContent(xmlContent: string): ViewerContent {
     stepsHtml,
     warnings,
     cautions,
+    figureHtml,
   };
 }
 
@@ -218,6 +224,8 @@ function buildViewerHtml(
   const stepsHtmlArr = content.stepsHtml;
   const warnings = content.warnings;
   const cautions = content.cautions;
+  // Use DB illustration first, else inline <figure> from XML (raw SVG, ids preserved)
+  const graphicHtml = illustrationSvg ?? content.figureHtml ?? null;
 
   const stepsHtml =
     stepsHtmlArr.length > 0
@@ -241,10 +249,11 @@ function buildViewerHtml(
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)} – S1000D Viewer</title>
   <style>
     * { box-sizing: border-box; }
+    html { font-size: 16px; }
     body {
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       margin: 0;
@@ -252,6 +261,7 @@ function buildViewerHtml(
       color: #333;
       line-height: 1.5;
       background: #f0f2f5;
+      font-size: 1rem;
     }
     .header {
       background: #4ba82e;
@@ -311,21 +321,55 @@ function buildViewerHtml(
     @media (max-width: 900px) {
       .viewer-graphic { position: relative; flex: 1 1 100%; }
     }
+    @media (max-width: 767px) {
+      .viewer-split {
+        flex-direction: column;
+        padding: 0 1rem 1.5rem;
+      }
+      .viewer-graphic {
+        order: -1;
+        flex: 1 1 100%;
+        position: relative;
+        top: 0;
+        margin-bottom: 1rem;
+      }
+      .viewer-text {
+        padding-right: 0;
+      }
+    }
+    /* Make SVGs visible and responsive */
+    figure svg,
     .viewer-graphic svg {
-      display: block;
       width: 100%;
       height: auto;
+      max-width: 600px;
+      display: block;
+      margin: 20px auto;
+      border: 1px solid #eee;
+    }
+    .viewer-graphic svg {
       max-width: 320px;
+      margin: 0 auto;
     }
     .viewer-graphic svg [id] {
       cursor: pointer;
       transition: fill 0.15s ease, transform 0.15s ease;
       transform-origin: center;
     }
-    .viewer-graphic svg [id].hotspot-highlight {
-      fill: #c62828 !important;
-      stroke: #c62828 !important;
-      transform: scale(1.2);
+    /* Highlight class for interactivity */
+    .active-part {
+      fill: #ff5252 !important;
+      stroke: #d32f2f !important;
+      stroke-width: 3px !important;
+      transition: all 0.3s ease;
+      transform-origin: center;
+      transform: scale(1.1);
+    }
+    .viewer-graphic svg [id].hotspot-highlight,
+    .viewer-graphic svg [id].active-part {
+      fill: #ff5252 !important;
+      stroke: #d32f2f !important;
+      transform: scale(1.1);
     }
     .internal-ref {
       cursor: pointer;
@@ -334,12 +378,20 @@ function buildViewerHtml(
       color: #1565c0;
     }
     .internal-ref:hover { color: #0d47a1; }
-    .text-highlight { background: #fff59d; }
+    /* Highlight text link */
+    .text-highlight {
+      background-color: #ffeb3b;
+      font-weight: bold;
+    }
     .container { max-width: 100%; }
     .toolbar {
       margin-bottom: 1rem;
     }
     .toolbar a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 0.75rem 1rem;
       color: #4ba82e;
       text-decoration: none;
       font-weight: 500;
@@ -395,8 +447,9 @@ function buildViewerHtml(
       position: fixed;
       bottom: 1.5rem;
       right: 1.5rem;
-      padding: 0.6rem 1rem;
-      font-size: 0.9rem;
+      min-height: 44px;
+      padding: 0.75rem 1.25rem;
+      font-size: 1rem;
       font-weight: 600;
       color: #fff;
       background: #c62828;
@@ -408,6 +461,121 @@ function buildViewerHtml(
     .btn-report-issue:hover {
       background: #b71c1c;
     }
+    .parts-section {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e0e0e0;
+    }
+    .parts-section h3 {
+      margin: 0 0 0.75rem;
+      font-size: 1.1rem;
+    }
+    .parts-section table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    .parts-section th,
+    .parts-section td {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #eee;
+    }
+    .parts-section th { background: #f5f5f5; color: #555; }
+    @media (max-width: 767px) {
+      .parts-section { display: none; }
+    }
+    .btn-show-parts {
+      display: none;
+      position: fixed;
+      bottom: 1.5rem;
+      left: 1.5rem;
+      min-height: 44px;
+      padding: 0.75rem 1.25rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      background: #1565c0;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 100;
+    }
+    .btn-show-parts:hover { background: #0d47a1; }
+    @media (max-width: 767px) {
+      .btn-show-parts { display: inline-flex; align-items: center; }
+    }
+    .parts-sheet-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+    .parts-sheet-overlay.open {
+      display: block;
+      opacity: 1;
+    }
+    .parts-sheet {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      max-height: 70vh;
+      background: #fff;
+      border-radius: 12px 12px 0 0;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+      z-index: 1001;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    .parts-sheet.open {
+      transform: translateY(0);
+    }
+    .parts-sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #e0e0e0;
+      flex-shrink: 0;
+    }
+    .parts-sheet-header h3 { margin: 0; font-size: 1.1rem; }
+    .parts-sheet-close {
+      min-height: 44px;
+      min-width: 44px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      font-size: 1.25rem;
+      cursor: pointer;
+      color: #666;
+      border-radius: 8px;
+    }
+    .parts-sheet-close:hover { background: #f0f0f0; color: #333; }
+    .parts-sheet-body {
+      overflow: auto;
+      padding: 1rem 1.25rem;
+      -webkit-overflow-scrolling: touch;
+    }
+    .parts-sheet-body table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 1rem;
+    }
+    .parts-sheet-body th,
+    .parts-sheet-body td {
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid #eee;
+    }
+    .parts-sheet-body th { background: #f5f5f5; color: #555; }
+    .parts-sheet-body .empty { color: #666; padding: 1rem 0; }
     .modal-overlay {
       display: none;
       position: fixed;
@@ -449,8 +617,9 @@ function buildViewerHtml(
       justify-content: flex-end;
     }
     .modal-actions button {
-      padding: 0.5rem 1rem;
-      font-size: 0.9rem;
+      min-height: 44px;
+      padding: 0.75rem 1.25rem;
+      font-size: 1rem;
       border-radius: 6px;
       cursor: pointer;
     }
@@ -488,12 +657,25 @@ function buildViewerHtml(
       ${warningsHtml}
       ${cautionsHtml}
       ${stepsHtml}
+      <div class="parts-section" id="parts-section-desktop">
+        <h3>Spare Parts (S2000M)</h3>
+        <div id="parts-table-desktop">Loading…</div>
+      </div>
     </div>
     <div class="viewer-graphic" id="viewer-graphic">
-      ${illustrationSvg ? illustrationSvg : '<div class="graphic-placeholder">No illustration</div>'}
+      ${graphicHtml ? graphicHtml : '<div class="graphic-placeholder">No illustration</div>'}
     </div>
   </div>
   <button type="button" class="btn-report-issue" id="btn-report-issue" aria-label="Report issue">⚠️ Report Issue</button>
+  <button type="button" class="btn-show-parts" id="btn-show-parts" aria-label="Show parts list">📦 Show Parts</button>
+  <div class="parts-sheet-overlay" id="parts-sheet-overlay" aria-hidden="true"></div>
+  <div class="parts-sheet" id="parts-sheet" role="dialog" aria-labelledby="parts-sheet-title">
+    <div class="parts-sheet-header">
+      <h3 id="parts-sheet-title">Spare Parts (S2000M)</h3>
+      <button type="button" class="parts-sheet-close" id="parts-sheet-close" aria-label="Close">×</button>
+    </div>
+    <div class="parts-sheet-body" id="parts-sheet-body">Loading…</div>
+  </div>
   <div class="modal-overlay" id="feedback-modal" role="dialog" aria-labelledby="feedback-modal-title">
     <div class="modal-box">
       <h3 id="feedback-modal-title">Describe the issue...</h3>
@@ -539,22 +721,78 @@ function buildViewerHtml(
   </script>
   <script>
     (function() {
+      function renderPartsTable(parts) {
+        if (!parts || parts.length === 0) {
+          return '<p class="empty">No spare parts. Import via <code>POST /api/s2000m/import</code>.</p>';
+        }
+        var rows = parts.map(function(p) {
+          return '<tr><td><code>' + escapeHtml(p.partNumber) + '</code></td><td>' + escapeHtml(p.name) + '</td><td>' + p.quantity + '</td><td>' + escapeHtml(p.unit || '—') + '</td></tr>';
+        }).join('');
+        return '<table><thead><tr><th>Part Number</th><th>Name</th><th>Quantity</th><th>Unit</th></tr></thead><tbody>' + rows + '</tbody></table>';
+      }
+      function escapeHtml(s) {
+        if (s == null) return '';
+        var div = document.createElement('div');
+        div.textContent = String(s);
+        return div.innerHTML;
+      }
+      var partsSheet = document.getElementById('parts-sheet');
+      var partsSheetOverlay = document.getElementById('parts-sheet-overlay');
+      var partsSheetBody = document.getElementById('parts-sheet-body');
+      var partsTableDesktop = document.getElementById('parts-table-desktop');
+      var partsLoaded = false;
+      function loadParts() {
+        if (partsLoaded) return;
+        partsLoaded = true;
+        fetch('/api/s2000m').then(function(r) { return r.json(); }).then(function(data) {
+          var parts = data.parts || [];
+          var html = renderPartsTable(parts);
+          if (partsTableDesktop) partsTableDesktop.innerHTML = html;
+          if (partsSheetBody) partsSheetBody.innerHTML = html;
+        }).catch(function() {
+          var err = '<p class="empty">Could not load parts.</p>';
+          if (partsTableDesktop) partsTableDesktop.innerHTML = err;
+          if (partsSheetBody) partsSheetBody.innerHTML = err;
+        });
+      }
+      document.getElementById('btn-show-parts').onclick = function() {
+        loadParts();
+        partsSheet.classList.add('open');
+        partsSheetOverlay.classList.add('open');
+        partsSheetOverlay.setAttribute('aria-hidden', 'false');
+      };
+      function closePartsSheet() {
+        partsSheet.classList.remove('open');
+        partsSheetOverlay.classList.remove('open');
+        partsSheetOverlay.setAttribute('aria-hidden', 'true');
+      }
+      document.getElementById('parts-sheet-close').onclick = closePartsSheet;
+      partsSheetOverlay.onclick = closePartsSheet;
+      loadParts();
+    })();
+  </script>
+  <script>
+    (function() {
       var graphic = document.getElementById('viewer-graphic');
       if (!graphic) return;
       var svg = graphic.querySelector('svg');
       function clearSvgHighlight() {
-        if (svg) svg.querySelectorAll('.hotspot-highlight').forEach(function(el) { el.classList.remove('hotspot-highlight'); });
+        if (svg) {
+          svg.querySelectorAll('.hotspot-highlight').forEach(function(el) { el.classList.remove('hotspot-highlight'); });
+          svg.querySelectorAll('.active-part').forEach(function(el) { el.classList.remove('active-part'); });
+        }
       }
       function clearTextHighlight() {
         document.querySelectorAll('.text-highlight').forEach(function(el) { el.classList.remove('text-highlight'); });
       }
+      // internalRef (text) -> SVG: hover/enter adds .active-part to SVG element by internalRefId
       document.querySelectorAll('.internal-ref').forEach(function(span) {
         var id = span.getAttribute('data-internal-ref-id');
         if (!id) return;
         span.addEventListener('mouseenter', function() {
           clearSvgHighlight();
           var el = svg && svg.querySelector('#' + CSS.escape(id));
-          if (el) el.classList.add('hotspot-highlight');
+          if (el) el.classList.add('active-part');
         });
         span.addEventListener('mouseleave', function() { clearSvgHighlight(); });
         span.addEventListener('click', function(e) {
@@ -564,18 +802,19 @@ function buildViewerHtml(
           span.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
       });
+      // Reverse: hover/click SVG part -> highlight corresponding text
       if (svg) {
         svg.querySelectorAll('[id]').forEach(function(el) {
           var id = el.id;
           if (!id) return;
           el.addEventListener('mouseenter', function() {
             clearSvgHighlight();
-            el.classList.add('hotspot-highlight');
+            el.classList.add('active-part');
           });
           el.addEventListener('mouseleave', function() { clearSvgHighlight(); });
           el.addEventListener('click', function() {
             clearTextHighlight();
-            var ref = document.querySelector('.internal-ref[data-internal-ref-id="' + id + '"]');
+            var ref = document.querySelector('.internal-ref[data-internal-ref-id="' + CSS.escape(id) + '"]');
             if (ref) {
               ref.classList.add('text-highlight');
               ref.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

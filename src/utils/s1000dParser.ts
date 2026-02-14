@@ -174,3 +174,36 @@ function findPath(
   }
   return current;
 }
+
+/**
+ * Extracts the inner content of the first <figure>...</figure> from raw S1000D XML.
+ * Used to output inline SVG exactly as stored (ids preserved for internalRef interaction).
+ * Does not parse SVG as XML—returns the raw substring so <svg> and all attributes are preserved.
+ */
+export function extractFigureContent(xmlContent: string): string | null {
+  if (!xmlContent || typeof xmlContent !== 'string') return null;
+  const openTag = '<figure';
+  const openEnd = '>';
+  const closeTag = '</figure>';
+  let start = xmlContent.indexOf(openTag);
+  if (start === -1) return null;
+  start = xmlContent.indexOf(openEnd, start);
+  if (start === -1) return null;
+  start += openEnd.length;
+  let depth = 1;
+  let pos = start;
+  while (depth > 0 && pos < xmlContent.length) {
+    const nextOpen = xmlContent.indexOf(openTag, pos);
+    const nextClose = xmlContent.indexOf(closeTag, pos);
+    if (nextClose === -1) break;
+    if (nextOpen !== -1 && nextOpen < nextClose) {
+      depth += 1;
+      pos = nextOpen + openTag.length;
+      continue;
+    }
+    depth -= 1;
+    if (depth === 0) return xmlContent.slice(start, nextClose).trim();
+    pos = nextClose + closeTag.length;
+  }
+  return null;
+}
