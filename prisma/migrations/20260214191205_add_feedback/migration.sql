@@ -1,0 +1,8 @@
+-- CreateTable
+CREATE TABLE "Feedback" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "dmCode" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'OPEN',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

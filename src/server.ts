@@ -7,8 +7,10 @@ import { specs } from './swagger';
 import s1000dRoutes from './routes/s1000dRoutes';
 import s2000mRoutes from './routes/s2000mRoutes';
 import s3000lRouter from './routes/s3000lRoutes';
+import feedbackRouter from './routes/feedbackRoutes';
 import { getViewerByDmc, getViewerByDmCode } from './controllers/viewerController';
 import { getDashboard } from './controllers/dashboardController';
+import { getMaximoMock } from './controllers/maximoMockController';
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -27,6 +29,13 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 // ---------------------------------------------------------------------------
 app.get('/', (req, res, next) => {
   getDashboard(req, res).catch(next);
+});
+
+// ---------------------------------------------------------------------------
+// Maximo Simulation: GET /maximo-mock – Work Order demo with S1000D manual link
+// ---------------------------------------------------------------------------
+app.get('/maximo-mock', (req, res, next) => {
+  getMaximoMock(req, res).catch(next);
 });
 
 // ---------------------------------------------------------------------------
@@ -63,6 +72,7 @@ app.get('/health', (_req: Request, res: Response): void => {
 app.use('/api/s1000d', s1000dRoutes);
 app.use('/api/s2000m', s2000mRoutes);
 app.use('/api/s3000l', s3000lRouter);
+app.use('/api/feedback', feedbackRouter);
 
 // ---------------------------------------------------------------------------
 // Start server

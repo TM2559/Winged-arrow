@@ -42,3 +42,12 @@ model MaintenanceTask {
   dm          DataModule?  @relation(fields: [dmId], references: [id])
   part        SparePart?   @relation(fields: [partId], references: [id])
 }
+
+// Technician Feedback Loop: field reports linked to a manual (DMC)
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  dmCode    String   // Link to the manual (S1000D DMC)
+  message   String   // The technician's comment
+  status    String   @default("OPEN") // OPEN, RESOLVED
+  createdAt DateTime @default(now())
+}

@@ -18,16 +18,17 @@ function escapeHtml(s: string): string {
  */
 export async function getDashboard(req: Request, res: Response): Promise<void> {
   try {
-    const [manuals, spareParts, maintenanceTasks] = await Promise.all([
+    const [manuals, spareParts, maintenanceTasks, feedbackList] = await Promise.all([
       prisma.dataModule.findMany({ orderBy: { dmCode: 'asc' } }),
       prisma.sparePart.findMany({ orderBy: { partNumber: 'asc' } }),
       prisma.maintenanceTask.findMany({
         orderBy: { taskCode: 'asc' },
         include: { dm: true, part: true },
       }),
+      prisma.feedback.findMany({ orderBy: { createdAt: 'desc' } }),
     ]);
 
-    logger.info(`Dashboard: ${manuals.length} manuals, ${spareParts.length} spare parts, ${maintenanceTasks.length} maintenance tasks`);
+    logger.info(`Dashboard: ${manuals.length} manuals, ${spareParts.length} spare parts, ${maintenanceTasks.length} maintenance tasks, ${feedbackList.length} feedback`);
 
     const manualsRows = manuals
       .map(
@@ -72,6 +73,22 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
         }
       )
       .join('') || '<tr><td colspan="5" class="empty">No maintenance tasks yet. Seed via <a href="/api/s3000l/seed">GET /api/s3000l/seed</a>.</td></tr>';
+
+    const feedbackItems =
+      feedbackList.length > 0
+        ? feedbackList
+            .map(
+              (f) => {
+                const reported = new Date(f.createdAt).toLocaleString();
+                const resolveBtn =
+                  f.status === 'OPEN'
+                    ? `<form method="get" action="/api/feedback/${f.id}/resolve" style="display:inline;"><button type="submit" class="btn btn-resolve">Resolve</button></form>`
+                    : '<span class="status-resolved">Resolved</span>';
+                return `<li class="feedback-item"><strong>Manual <code>${escapeHtml(f.dmCode)}</code></strong> has an issue: ${escapeHtml(f.message)} <span class="feedback-meta">(Reported: ${escapeHtml(reported)})</span> ${resolveBtn}</li>`;
+              }
+            )
+            .join('')
+        : '<li class="empty">No technician feedback yet. Use "Report Issue" in the Viewer to submit.</li>';
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -171,6 +188,47 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       background: #3d8f26;
       color: #fff;
     }
+    .maximo-demo {
+      margin: 0 0 1.5rem;
+    }
+    .btn-maximo {
+      background: #003a6b;
+      color: #fff;
+    }
+    .btn-maximo:hover {
+      background: #002a52;
+      color: #fff;
+    }
+    .feedback-list {
+      list-style: none;
+      padding: 0 1.25rem 1rem;
+      margin: 0;
+    }
+    .feedback-item {
+      padding: 0.75rem 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .feedback-item:last-child { border-bottom: none; }
+    .feedback-meta {
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .btn-resolve {
+      background: #4ba82e;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      margin-left: 0.5rem;
+    }
+    .btn-resolve:hover {
+      background: #3d8f26;
+      color: #fff;
+    }
+    .status-resolved {
+      font-size: 0.85rem;
+      color: #2e7d32;
+      margin-left: 0.5rem;
+    }
   </style>
 </head>
 <body>
@@ -179,6 +237,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
     <p>Škoda IPS – S1000D Manuals, S2000M Spare Parts &amp; S3000L Maintenance Schedule</p>
   </header>
   <div class="container">
+    <p class="maximo-demo"><a href="/maximo-mock" class="btn btn-maximo">🚀 Run Maximo Demo Simulation</a></p>
     <section class="card">
       <h2>Available Manuals (S1000D)</h2>
       <table>
@@ -228,6 +287,13 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
           ${tasksRows}
         </tbody>
       </table>
+    </section>
+    <section class="card">
+      <h2>Quality Assurance / Technician Feedback</h2>
+      <p style="margin: 0 1.25rem 0.75rem; font-size: 0.9rem; color: #555;">Field reports from technicians viewing manuals. Resolve when addressed.</p>
+      <ul class="feedback-list">
+        ${feedbackItems}
+      </ul>
     </section>
   </div>
 </body>

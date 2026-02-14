@@ -170,11 +170,17 @@ function escapeHtml(s: string): string {
 
 const PLACEHOLDER_GRAPHIC_URL = 'https://placehold.co/600x400?text=Technical+Drawing';
 
+/** Options for viewer HTML (e.g. show Maximo sync badge). */
+interface ViewerOptions {
+  fromMaximo?: boolean;
+}
+
 /**
  * Builds a full HTML5 document with Škoda branding for the manual.
  * Includes placeholder graphic, warning/caution boxes, and link back to dashboard.
  */
-function buildViewerHtml(dmCode: string, content: ViewerContent): string {
+function buildViewerHtml(dmCode: string, content: ViewerContent, options: ViewerOptions = {}): string {
+  const { fromMaximo = false } = options;
   const title = content.title || dmCode;
   const subtitle = content.subtitle;
   const steps = content.steps;
@@ -231,6 +237,20 @@ function buildViewerHtml(dmCode: string, content: ViewerContent): string {
       margin: 0.25rem 0 0;
       font-size: 1rem;
       opacity: 0.95;
+    }
+    .header .badge-wrap {
+      margin-top: 0.5rem;
+    }
+    .badge-maximo {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      background: #003a6b;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
     .container {
       max-width: 720px;
@@ -289,12 +309,93 @@ function buildViewerHtml(dmCode: string, content: ViewerContent): string {
       font-style: italic;
       margin: 0;
     }
+    .btn-report-issue {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      padding: 0.6rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #fff;
+      background: #c62828;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .btn-report-issue:hover {
+      background: #b71c1c;
+    }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-overlay.open {
+      display: flex;
+    }
+    .modal-box {
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 8px;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .modal-box h3 {
+      margin: 0 0 1rem;
+      font-size: 1.1rem;
+    }
+    .modal-box textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.5rem;
+      font-family: inherit;
+      font-size: 0.95rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      resize: vertical;
+    }
+    .modal-actions {
+      margin-top: 1rem;
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+    .modal-actions button {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .modal-actions .btn-cancel {
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+    }
+    .modal-actions .btn-submit {
+      background: #4ba82e;
+      color: #fff;
+      border: none;
+    }
+    .modal-actions .btn-submit:hover {
+      background: #3d8f26;
+    }
+    .report-success {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #2e7d32;
+    }
   </style>
 </head>
-<body>
+<body data-dmc="${escapeHtml(dmCode).replace(/"/g, '&quot;')}">
   <header class="header">
     <h1>${escapeHtml(title)}</h1>
     ${subtitle ? `<p class="subtitle">${escapeHtml(subtitle)}</p>` : ''}
+    ${fromMaximo ? '<div class="badge-wrap"><span class="badge-maximo">Sync with Maximo</span></div>' : ''}
   </header>
   <div class="container">
     <div class="toolbar">
@@ -306,6 +407,50 @@ function buildViewerHtml(dmCode: string, content: ViewerContent): string {
     ${cautionsHtml}
     ${stepsHtml}
   </div>
+  <button type="button" class="btn-report-issue" id="btn-report-issue" aria-label="Report issue">⚠️ Report Issue</button>
+  <div class="modal-overlay" id="feedback-modal" role="dialog" aria-labelledby="feedback-modal-title">
+    <div class="modal-box">
+      <h3 id="feedback-modal-title">Describe the issue...</h3>
+      <textarea id="feedback-message" placeholder="Describe the issue..."></textarea>
+      <div id="feedback-success" class="report-success" style="display:none;">Thank you. Your report has been submitted.</div>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" id="feedback-cancel">Cancel</button>
+        <button type="button" class="btn-submit" id="feedback-submit">Submit</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      var dmc = document.body.getAttribute('data-dmc') || '';
+      var modal = document.getElementById('feedback-modal');
+      var messageEl = document.getElementById('feedback-message');
+      var successEl = document.getElementById('feedback-success');
+      document.getElementById('btn-report-issue').onclick = function() {
+        messageEl.value = '';
+        successEl.style.display = 'none';
+        modal.classList.add('open');
+      };
+      document.getElementById('feedback-cancel').onclick = function() {
+        modal.classList.remove('open');
+      };
+      document.getElementById('feedback-submit').onclick = function() {
+        var message = (messageEl.value || '').trim();
+        if (!message) return;
+        fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dmCode: dmc, message: message })
+        }).then(function(r) {
+          if (r.ok) {
+            successEl.style.display = 'block';
+            setTimeout(function() {
+              modal.classList.remove('open');
+            }, 1500);
+          }
+        });
+      };
+    })();
+  </script>
 </body>
 </html>`;
 }
@@ -333,8 +478,9 @@ export async function getViewerByDmc(req: Request, res: Response): Promise<void>
     return;
   }
 
+  const fromMaximo = req.query.from === 'maximo';
   const content = parseViewerContent(dataModule.xmlContent);
-  const html = buildViewerHtml(dataModule.dmCode, content);
+  const html = buildViewerHtml(dataModule.dmCode, content, { fromMaximo });
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 }
@@ -363,8 +509,9 @@ export async function getViewerByDmCode(req: Request, res: Response): Promise<vo
     return;
   }
 
+  const fromMaximo = req.query.from === 'maximo';
   const content = parseViewerContent(dataModule.xmlContent);
-  const html = buildViewerHtml(dataModule.dmCode, content);
+  const html = buildViewerHtml(dataModule.dmCode, content, { fromMaximo });
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 }
