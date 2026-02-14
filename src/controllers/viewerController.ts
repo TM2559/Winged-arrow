@@ -229,7 +229,12 @@ function buildViewerHtml(
 
   const stepsHtml =
     stepsHtmlArr.length > 0
-      ? `<ol class="steps">${stepsHtmlArr.map((s) => `<li>${s}</li>`).join('')}</ol>`
+      ? `<div class="steps">${stepsHtmlArr
+          .map(
+            (s, i) =>
+              `<div class="step-item"><input type="checkbox" id="step-${i + 1}" class="step-checkbox" aria-label="Step ${i + 1}"><label for="step-${i + 1}" class="step-label">${s}</label></div>`
+          )
+          .join('')}</div>`
       : '<p class="no-steps">No procedural steps found in this data module.</p>';
 
   const warningsHtml =
@@ -251,34 +256,38 @@ function buildViewerHtml(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)} – S1000D Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
     html { font-size: 16px; }
     body {
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-family: 'Inter', 'Roboto', system-ui, sans-serif;
       margin: 0;
       padding: 0;
-      color: #333;
+      color: #212121;
       line-height: 1.5;
-      background: #f0f2f5;
+      background: #eaeff2;
       font-size: 1rem;
     }
     .header {
-      background: #4ba82e;
+      background: #002855;
       color: #fff;
       padding: 1.25rem 2rem;
       margin-bottom: 1.5rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
     .header h1 {
       margin: 0;
-      font-size: 1.5rem;
-      font-weight: 600;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
     }
     .header .subtitle {
       margin: 0.25rem 0 0;
-      font-size: 1rem;
-      opacity: 0.95;
+      font-size: 0.95rem;
+      opacity: 0.9;
     }
     .header .badge-wrap {
       margin-top: 0.5rem;
@@ -289,7 +298,7 @@ function buildViewerHtml(
       font-weight: 600;
       padding: 0.25rem 0.6rem;
       border-radius: 4px;
-      background: #003a6b;
+      background: #009fe3;
       color: #fff;
       text-transform: uppercase;
       letter-spacing: 0.04em;
@@ -313,10 +322,10 @@ function buildViewerHtml(
       top: 1rem;
       align-self: start;
       padding: 1rem;
-      background: #fff;
-      border-radius: 8px;
-      border: 1px solid #e0e0e0;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      background: #ffffff;
+      border-radius: 4px;
+      border: 1px solid #dde1e4;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
     @media (max-width: 900px) {
       .viewer-graphic { position: relative; flex: 1 1 100%; }
@@ -337,7 +346,7 @@ function buildViewerHtml(
         padding-right: 0;
       }
     }
-    /* Make SVGs visible and responsive */
+    /* Technical drawings: white background, thin borders (CAD-style) */
     figure svg,
     .viewer-graphic svg {
       width: 100%;
@@ -345,7 +354,8 @@ function buildViewerHtml(
       max-width: 600px;
       display: block;
       margin: 20px auto;
-      border: 1px solid #eee;
+      background: #ffffff;
+      border: 1px solid #dde1e4;
     }
     .viewer-graphic svg {
       max-width: 320px;
@@ -375,9 +385,9 @@ function buildViewerHtml(
       cursor: pointer;
       text-decoration: underline;
       text-decoration-style: dotted;
-      color: #1565c0;
+      color: #009fe3;
     }
-    .internal-ref:hover { color: #0d47a1; }
+    .internal-ref:hover { color: #002855; }
     /* Highlight text link */
     .text-highlight {
       background-color: #ffeb3b;
@@ -392,11 +402,12 @@ function buildViewerHtml(
       align-items: center;
       min-height: 44px;
       padding: 0.75rem 1rem;
-      color: #4ba82e;
+      color: #009fe3;
       text-decoration: none;
       font-weight: 500;
     }
     .toolbar a:hover {
+      color: #002855;
       text-decoration: underline;
     }
     .graphic-placeholder {
@@ -432,11 +443,27 @@ function buildViewerHtml(
       border-radius: 0 6px 6px 0;
     }
     .steps {
-      padding-left: 1.5rem;
       margin: 0 0 1rem;
     }
-    .steps li {
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
       margin-bottom: 0.75rem;
+    }
+    .step-checkbox {
+      flex-shrink: 0;
+      margin-top: 0.35rem;
+      cursor: pointer;
+    }
+    .step-label {
+      cursor: pointer;
+      flex: 1;
+      margin: 0;
+    }
+    .step-label.step-done {
+      opacity: 0.6;
+      text-decoration: line-through;
     }
     .no-steps {
       color: #666;
@@ -452,14 +479,14 @@ function buildViewerHtml(
       font-size: 1rem;
       font-weight: 600;
       color: #fff;
-      background: #c62828;
+      background: #e65100;
       border: none;
-      border-radius: 8px;
+      border-radius: 4px;
       cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
     .btn-report-issue:hover {
-      background: #b71c1c;
+      background: #d84315;
     }
     .parts-section {
       margin-top: 1.5rem;
@@ -679,17 +706,19 @@ function buildViewerHtml(
   <div class="modal-overlay" id="feedback-modal" role="dialog" aria-labelledby="feedback-modal-title">
     <div class="modal-box">
       <h3 id="feedback-modal-title">Describe the issue...</h3>
+      <input type="hidden" id="feedback-dmc" name="dmCode" value="${escapeHtml(dmCode).replace(/"/g, '&quot;')}">
       <textarea id="feedback-message" placeholder="Describe the issue..."></textarea>
-      <div id="feedback-success" class="report-success" style="display:none;">Thank you. Your report has been submitted.</div>
+      <div id="feedback-success" class="report-success" style="display:none;">Thank you! Engineering notified.</div>
       <div class="modal-actions">
         <button type="button" class="btn-cancel" id="feedback-cancel">Cancel</button>
-        <button type="button" class="btn-submit" id="feedback-submit">Submit</button>
+        <button type="button" class="btn-submit" id="feedback-submit">Send Report</button>
       </div>
     </div>
   </div>
   <script>
     (function() {
-      var dmc = document.body.getAttribute('data-dmc') || '';
+      var dmcEl = document.getElementById('feedback-dmc');
+      var dmc = (dmcEl && dmcEl.value) || document.body.getAttribute('data-dmc') || '';
       var modal = document.getElementById('feedback-modal');
       var messageEl = document.getElementById('feedback-message');
       var successEl = document.getElementById('feedback-success');
@@ -717,6 +746,16 @@ function buildViewerHtml(
           }
         });
       };
+    })();
+  </script>
+  <script>
+    (function() {
+      document.querySelectorAll('.step-checkbox').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+          var label = document.querySelector('label[for="' + cb.id + '"]');
+          if (label) label.classList.toggle('step-done', cb.checked);
+        });
+      });
     })();
   </script>
   <script>
