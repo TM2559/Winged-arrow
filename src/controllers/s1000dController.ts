@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { parseDataModule } from '../utils/s1000dParser';
 import { getWorkOrderByNum } from '../services/maximoClient';
 import { buildViewerUrl } from '../services/s1000dService';
+import { prisma } from '../lib/prisma';
 import type { S1000DLinkQuery } from '../schemas/s1000dSchema';
 import type { ValidatedRequest } from '../middleware/validateRequest';
 
@@ -63,9 +64,9 @@ function modelFromDmc(dmCode: string): string {
 /**
  * POST /upload (application/xml body)
  * Receives XML in req.body (parsed by express.text({ type: 'application/xml' })).
- * Uses the parser to get metadata and returns JSON with extracted data and a generated Viewer URL.
+ * Parses metadata, saves/updates DataModule in DB (upsert by dmCode), returns JSON with id and viewer URL.
  */
-export function uploadDataModule(req: Request, res: Response): void {
+export async function uploadDataModule(req: Request, res: Response): Promise<void> {
   const xmlContent = req.body;
   if (typeof xmlContent !== 'string' || !xmlContent.trim()) {
     res.status(400).json({
@@ -79,11 +80,32 @@ export function uploadDataModule(req: Request, res: Response): void {
 
   try {
     const metadata = parseDataModule(xmlContent);
+    const issueDate = metadata.issueDate?.trim() || null;
+    const techName = metadata.techName?.trim() || null;
+
+    const saved = await prisma.dataModule.upsert({
+      where: { dmCode: metadata.dmCode },
+      create: {
+        dmCode: metadata.dmCode,
+        issueDate,
+        techName,
+        xmlContent,
+      },
+      update: {
+        issueDate,
+        techName,
+        xmlContent,
+      },
+    });
+
+    console.log('S1000D DataModule saved to database:', { id: saved.id, dmCode: saved.dmCode });
+
     const model = modelFromDmc(metadata.dmCode);
     const viewerUrl = buildViewerUrl(metadata.dmCode, model);
 
     res.status(200).json({
       ...metadata,
+      id: saved.id,
       viewerUrl,
     });
   } catch (err) {
@@ -98,9 +120,9 @@ export function uploadDataModule(req: Request, res: Response): void {
 
 /**
  * POST /upload (multipart file)
- * Accepts an S1000D XML file via multipart/form-data. Uses the same parser and returns extracted data + viewer URL.
+ * Accepts an S1000D XML file via multipart/form-data. Parses, saves/updates DataModule in DB (upsert by dmCode), returns id + viewer URL.
  */
-export function uploadS1000DXml(req: Request, res: Response): void {
+export async function uploadS1000DXml(req: Request, res: Response): Promise<void> {
   const multerReq = req as Request & { file?: Express.Multer.File; files?: Express.Multer.File[] };
   const file = multerReq.files?.[0] ?? multerReq.file;
 
@@ -117,11 +139,32 @@ export function uploadS1000DXml(req: Request, res: Response): void {
 
   try {
     const metadata = parseDataModule(xmlString);
+    const issueDate = metadata.issueDate?.trim() || null;
+    const techName = metadata.techName?.trim() || null;
+
+    const saved = await prisma.dataModule.upsert({
+      where: { dmCode: metadata.dmCode },
+      create: {
+        dmCode: metadata.dmCode,
+        issueDate,
+        techName,
+        xmlContent: xmlString,
+      },
+      update: {
+        issueDate,
+        techName,
+        xmlContent: xmlString,
+      },
+    });
+
+    console.log('S1000D DataModule saved to database:', { id: saved.id, dmCode: saved.dmCode });
+
     const model = modelFromDmc(metadata.dmCode);
     const viewerUrl = buildViewerUrl(metadata.dmCode, model);
 
     res.status(200).json({
       ...metadata,
+      id: saved.id,
       viewerUrl,
     });
   } catch (err) {

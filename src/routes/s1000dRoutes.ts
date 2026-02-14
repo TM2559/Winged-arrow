@@ -118,12 +118,15 @@ router.post(
   '/upload',
   (req, res, next) => {
     if (req.is('application/xml') && typeof req.body === 'string') {
-      return uploadDataModule(req, res);
+      uploadDataModule(req, res).catch(next);
+      return;
     }
     next();
   },
   upload.any(),
-  uploadS1000DXml
+  (req, res, next) => {
+    uploadS1000DXml(req, res).catch(next);
+  }
 );
 
 export default router;

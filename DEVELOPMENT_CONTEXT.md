@@ -5,15 +5,25 @@ Long-term memory for AI and developers. Update this file as the project evolves.
 ---
 
 ## 1. Current Project State
+## 🚀 Current Status (Ready for Demo)
+- **Architecture**: Node.js/TypeScript backend with Express.
+- **Documentation**: Swagger UI fully functional at `/api-docs`.
+- **S2000M Module**: 
+  - Implements `POST /import` for spare parts.
+  - Secured with **Zod validation** (rejects invalid data).
+  - Correctly handles array-based imports (`{ parts: [...] }`).
+- **S1000D Module**: 
+  - Implements `POST /upload` for XML Data Modules.
+  - **XML Parser**: Successfully extracts metadata (DMC, TechName) from raw S1000D XML, including attributes.
+  - Generates deep links to the Viewer.
+- **Frontend**: Basic HTML Viewer for visualization.
 
-**Škoda Transportation IPS Integration** — Proof of Concept for ASD S-Series (S1000D & S2000M) integration with IBM Maximo 9 (MAS).
-
-- **Phase**: MVP / PoC. Middleware provides documentation linking (S1000D) and material provisioning (S2000M) flows.
-- **Backend**: Node.js + Express + TypeScript, single server entry point (`src/server.ts`).
-- **APIs**: REST under `/api/v1/s1000d` and `/api/v1/s2000m`.
-- **Viewer**: Static mock IETP viewer at `/viewer` (served from `mocks/viewer/`).
-- **Automation**: Jython script for Maximo (Object Launch Point on WORKORDER) to append S1000D viewer URL to WO long description; not yet wired to this service (uses hardcoded base URL).
-- **Deployment target**: Docker / Red Hat OpenShift (MAS 9).
+## 🎯 Current Goals (Immediate)
+1.  **DEMO DAY**: Present the MVP to Škoda IT/Management.
+    - Demonstrate S2000M validation (Security).
+    - Demonstrate S1000D XML parsing (Integration).
+2.  **Acquire Access**: Get credentials for the Maximo Sandbox environment.
+3.  **Next Sprint**: Connect the middleware to the real Maximo API.
 
 ---
 
@@ -75,13 +85,12 @@ Long-term memory for AI and developers. Update this file as the project evolves.
 
 ---
 
-## 6. Current Goals
-
-- Complete S1000D/S2000M PoC for demo (link generation + mock viewer + S2000M import flow).
-- Optionally wire S1000D link to `maximoClient.getWorkOrderByNum()` so one code path supports MOCK and REAL.
-- Prepare for Škoda DEV access: VPN, Maximo admin, real S1000D CSDB and Maximo API integration.
-- (Roadmap) Real S1000D CSDB integration; expand S3000L (Logistics Support Analysis).
-
+## 🎯 Current Goals (Immediate)
+1.  **DEMO DAY**: Present the MVP to Škoda IT/Management.
+    - Demonstrate S2000M validation (Security).
+    - Demonstrate S1000D XML parsing (Integration).
+2.  **Acquire Access**: Get credentials for the Maximo Sandbox environment.
+3.  **Next Sprint**: Connect the middleware to the real Maximo API.
 ---
 
 ## 7. Technical Debt / Issues

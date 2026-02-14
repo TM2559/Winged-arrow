@@ -1,0 +1,28 @@
+// Prisma schema for S1000D/S2000M Middleware
+// SQLite for development
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model DataModule {
+  id         Int      @id @default(autoincrement())
+  dmCode     String   @unique // Full DMC string (e.g. "SKODA-A-...")
+  techName   String?  // From <techName>
+  issueDate  String?  // Stored as string
+  xmlContent String   // Entire raw XML body for viewer
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model SparePart {
+  id         Int    @id @default(autoincrement())
+  partNumber String @unique
+  name       String
+  quantity   Int
+  unit       String?
+}

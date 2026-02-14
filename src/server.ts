@@ -6,6 +6,7 @@ import { logger } from './utils/logger';
 import { specs } from './swagger';
 import s1000dRoutes from './routes/s1000dRoutes';
 import s2000mRoutes from './routes/s2000mRoutes';
+import { getViewerByDmc, getViewerByDmCode } from './controllers/viewerController';
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -20,7 +21,23 @@ app.use(express.text({ type: 'application/xml' }));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 // ---------------------------------------------------------------------------
-// Mock viewer (static)
+// Native viewer: GET /viewer?dmc=... returns xmlContent as text/plain (or 404)
+// ---------------------------------------------------------------------------
+app.get('/viewer', (req, res, next) => {
+  if (req.query.dmc) {
+    getViewerByDmc(req, res).catch(next);
+    return;
+  }
+  next();
+});
+
+// ---------------------------------------------------------------------------
+// Native viewer by path: GET /viewer/:dmCode (HTML page)
+// ---------------------------------------------------------------------------
+app.get('/viewer/:dmCode', getViewerByDmCode);
+
+// ---------------------------------------------------------------------------
+// Mock viewer (static: /viewer, /viewer/index.html, etc.)
 // ---------------------------------------------------------------------------
 app.use('/viewer', express.static(path.join(__dirname, '../mocks/viewer')));
 
@@ -32,10 +49,10 @@ app.get('/health', (_req: Request, res: Response): void => {
 });
 
 // ---------------------------------------------------------------------------
-// S1000D API
+// S1000D & S2000M API
 // ---------------------------------------------------------------------------
-app.use('/api/v1/s1000d', s1000dRoutes);
-app.use('/api/v1/s2000m', s2000mRoutes);
+app.use('/api/s1000d', s1000dRoutes);
+app.use('/api/s2000m', s2000mRoutes);
 
 // ---------------------------------------------------------------------------
 // Start server
