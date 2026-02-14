@@ -15,6 +15,7 @@ model DataModule {
   techName          String?           // From <techName>
   issueDate         String?           // Stored as string
   xmlContent        String            // Entire raw XML body for viewer
+  illustrationSvg   String?           // Optional inline SVG for hotspots (elements with id match internalRefId)
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   maintenanceTasks  MaintenanceTask[]

@@ -3,11 +3,11 @@ import { XMLParser } from 'fast-xml-parser';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 
-/** Parsed viewer content from S1000D XML (title, subtitle, steps, warnings, cautions). */
+/** Parsed viewer content from S1000D XML (title, subtitle, steps as HTML, warnings, cautions). */
 interface ViewerContent {
   title: string;
   subtitle: string;
-  steps: string[];
+  stepsHtml: string[];
   warnings: string[];
   cautions: string[];
 }
@@ -45,14 +45,14 @@ function parseViewerContent(xmlContent: string): ViewerContent {
     }
   }
 
-  const steps = collectProceduralSteps(dmodule);
+  const stepsHtml = collectProceduralStepsHtml(dmodule);
   const warnings = collectTextFromTag(dmodule, 'warning');
   const cautions = collectTextFromTag(dmodule, 'caution');
 
   return {
     title: title || 'S1000D Data Module',
     subtitle,
-    steps,
+    stepsHtml,
     warnings,
     cautions,
   };
@@ -67,49 +67,78 @@ function findPath(root: Record<string, unknown> | undefined, path: string[]): un
   return current;
 }
 
-/** Recursively find all proceduralStep nodes and extract para text. */
-function collectProceduralSteps(node: unknown): string[] {
+/** Step node key used by S1000D (procedureSteps) */
+const STEP_KEYS = ['proceduralStep', 'procedureStep'] as const;
+
+/** Recursively find all proceduralStep/procedureStep nodes and extract para as HTML (with internalRef → span). */
+function collectProceduralStepsHtml(node: unknown): string[] {
   const steps: string[] = [];
   if (node == null) return steps;
 
   if (typeof node === 'object' && !Array.isArray(node)) {
     const obj = node as Record<string, unknown>;
-    if (obj.proceduralStep !== undefined) {
-      const stepNodes = Array.isArray(obj.proceduralStep) ? obj.proceduralStep : [obj.proceduralStep];
-      for (const step of stepNodes) {
-        const text = extractParaText(step);
-        if (text) steps.push(text);
+    for (const key of STEP_KEYS) {
+      if (obj[key] !== undefined) {
+        const stepNodes = Array.isArray(obj[key]) ? (obj[key] as unknown[]) : [obj[key]];
+        for (const step of stepNodes) {
+          const html = extractParaHtml(step);
+          if (html) steps.push(html);
+        }
       }
     }
     for (const key of Object.keys(obj)) {
-      if (key === 'proceduralStep') continue;
-      steps.push(...collectProceduralSteps(obj[key]));
+      if (STEP_KEYS.includes(key as (typeof STEP_KEYS)[number])) continue;
+      steps.push(...collectProceduralStepsHtml(obj[key]));
     }
   }
 
   if (Array.isArray(node)) {
     for (const item of node) {
-      steps.push(...collectProceduralSteps(item));
+      steps.push(...collectProceduralStepsHtml(item));
     }
   }
   return steps;
 }
 
-function extractParaText(stepNode: unknown): string {
+/** Extract para content as HTML; internalRef becomes <span class="internal-ref" data-internal-ref-id="...">...</span>. */
+function extractParaHtml(stepNode: unknown): string {
   if (stepNode == null) return '';
-  if (typeof stepNode === 'string') return stepNode.trim();
+  if (typeof stepNode === 'string') return escapeHtml(stepNode.trim());
   if (typeof stepNode !== 'object') return '';
   const obj = stepNode as Record<string, unknown>;
   const para = obj.para;
-  if (typeof para === 'string') return para.trim();
+  if (typeof para === 'string') return escapeHtml(para.trim());
   if (Array.isArray(para)) {
-    return para.map((p) => (typeof p === 'string' ? p : (p as Record<string, unknown>)['#text'] as string)?.trim() ?? '').filter(Boolean).join(' ');
+    return para.map((p) => extractParaSegmentHtml(p)).join('');
   }
-  if (para && typeof para === 'object') {
-    const text = (para as Record<string, unknown>)['#text'];
-    return typeof text === 'string' ? text.trim() : '';
-  }
+  if (para && typeof para === 'object') return extractParaSegmentHtml(para);
   return '';
+}
+
+/** Single para segment (object with #text and/or internalRef; internalRef may be single or array). */
+function extractParaSegmentHtml(para: unknown): string {
+  if (para == null) return '';
+  if (typeof para === 'string') return escapeHtml(para.trim());
+  if (typeof para !== 'object') return '';
+  const p = para as Record<string, unknown>;
+  let fullText = typeof p['#text'] === 'string' ? (p['#text'] as string).trim() : '';
+  const ref = p.internalRef;
+  if (!ref) return escapeHtml(fullText);
+  const refs = Array.isArray(ref) ? ref : [ref];
+  if (refs.length === 0) return escapeHtml(fullText);
+  let out = escapeHtml(fullText);
+  for (const r of refs) {
+    if (r == null || typeof r !== 'object') continue;
+    const refObj = r as Record<string, unknown>;
+    const refId = typeof refObj.internalRefId === 'string' ? refObj.internalRefId.trim() : '';
+    const refText = typeof refObj['#text'] === 'string' ? (refObj['#text'] as string).trim() : '';
+    const span = `<span class="internal-ref" data-internal-ref-id="${escapeHtml(refId)}">${escapeHtml(refText)}</span>`;
+    const escapedRef = escapeHtml(refText);
+    const idx = out.indexOf(escapedRef);
+    if (idx === -1) out = out + span;
+    else out = out.slice(0, idx) + span + out.slice(idx + escapedRef.length);
+  }
+  return out;
 }
 
 /** Recursively find all elements with tag name (e.g. warning, caution) and extract their text (para or #text). */
@@ -168,8 +197,6 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-const PLACEHOLDER_GRAPHIC_URL = 'https://placehold.co/600x400?text=Technical+Drawing';
-
 /** Options for viewer HTML (e.g. show Maximo sync badge). */
 interface ViewerOptions {
   fromMaximo?: boolean;
@@ -177,19 +204,24 @@ interface ViewerOptions {
 
 /**
  * Builds a full HTML5 document with Škoda branding for the manual.
- * Includes placeholder graphic, warning/caution boxes, and link back to dashboard.
+ * Split view: text left, graphic right (sticky). Hotspots: internalRef ↔ SVG element by id.
  */
-function buildViewerHtml(dmCode: string, content: ViewerContent, options: ViewerOptions = {}): string {
+function buildViewerHtml(
+  dmCode: string,
+  content: ViewerContent,
+  illustrationSvg: string | null,
+  options: ViewerOptions = {}
+): string {
   const { fromMaximo = false } = options;
   const title = content.title || dmCode;
   const subtitle = content.subtitle;
-  const steps = content.steps;
+  const stepsHtmlArr = content.stepsHtml;
   const warnings = content.warnings;
   const cautions = content.cautions;
 
   const stepsHtml =
-    steps.length > 0
-      ? `<ol class="steps">${steps.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}</ol>`
+    stepsHtmlArr.length > 0
+      ? `<ol class="steps">${stepsHtmlArr.map((s) => `<li>${s}</li>`).join('')}</ol>`
       : '<p class="no-steps">No procedural steps found in this data module.</p>';
 
   const warningsHtml =
@@ -252,11 +284,58 @@ function buildViewerHtml(dmCode: string, content: ViewerContent, options: Viewer
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    .container {
-      max-width: 720px;
+    .viewer-split {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      max-width: 1400px;
       margin: 0 auto;
-      padding: 0 2rem 2rem;
+      padding: 0 1rem 2rem;
     }
+    .viewer-text {
+      flex: 1 1 50%;
+      min-width: 280px;
+      padding-right: 1.5rem;
+    }
+    .viewer-graphic {
+      flex: 0 0 360px;
+      position: sticky;
+      top: 1rem;
+      align-self: start;
+      padding: 1rem;
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    @media (max-width: 900px) {
+      .viewer-graphic { position: relative; flex: 1 1 100%; }
+    }
+    .viewer-graphic svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-width: 320px;
+    }
+    .viewer-graphic svg [id] {
+      cursor: pointer;
+      transition: fill 0.15s ease, transform 0.15s ease;
+      transform-origin: center;
+    }
+    .viewer-graphic svg [id].hotspot-highlight {
+      fill: #c62828 !important;
+      stroke: #c62828 !important;
+      transform: scale(1.2);
+    }
+    .internal-ref {
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-style: dotted;
+      color: #1565c0;
+    }
+    .internal-ref:hover { color: #0d47a1; }
+    .text-highlight { background: #fff59d; }
+    .container { max-width: 100%; }
     .toolbar {
       margin-bottom: 1rem;
     }
@@ -270,13 +349,16 @@ function buildViewerHtml(dmCode: string, content: ViewerContent, options: Viewer
     }
     .graphic-placeholder {
       width: 100%;
-      max-width: 600px;
-      height: auto;
-      display: block;
-      margin: 0 0 1.5rem;
+      max-width: 320px;
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       border-radius: 6px;
-      border: 1px solid #e0e0e0;
+      border: 1px dashed #ccc;
       background: #f5f5f5;
+      color: #999;
+      font-size: 0.9rem;
     }
     .dmc {
       font-size: 0.875rem;
@@ -397,15 +479,19 @@ function buildViewerHtml(dmCode: string, content: ViewerContent, options: Viewer
     ${subtitle ? `<p class="subtitle">${escapeHtml(subtitle)}</p>` : ''}
     ${fromMaximo ? '<div class="badge-wrap"><span class="badge-maximo">Sync with Maximo</span></div>' : ''}
   </header>
-  <div class="container">
-    <div class="toolbar">
-      <a href="/">← Back to Dashboard</a>
+  <div class="viewer-split">
+    <div class="viewer-text">
+      <div class="toolbar">
+        <a href="/">← Back to Dashboard</a>
+      </div>
+      <p class="dmc"><strong>DMC:</strong> ${escapeHtml(dmCode)}</p>
+      ${warningsHtml}
+      ${cautionsHtml}
+      ${stepsHtml}
     </div>
-    <p class="dmc"><strong>DMC:</strong> ${escapeHtml(dmCode)}</p>
-    <img class="graphic-placeholder" src="${PLACEHOLDER_GRAPHIC_URL}" alt="Technical drawing placeholder" />
-    ${warningsHtml}
-    ${cautionsHtml}
-    ${stepsHtml}
+    <div class="viewer-graphic" id="viewer-graphic">
+      ${illustrationSvg ? illustrationSvg : '<div class="graphic-placeholder">No illustration</div>'}
+    </div>
   </div>
   <button type="button" class="btn-report-issue" id="btn-report-issue" aria-label="Report issue">⚠️ Report Issue</button>
   <div class="modal-overlay" id="feedback-modal" role="dialog" aria-labelledby="feedback-modal-title">
@@ -451,6 +537,54 @@ function buildViewerHtml(dmCode: string, content: ViewerContent, options: Viewer
       };
     })();
   </script>
+  <script>
+    (function() {
+      var graphic = document.getElementById('viewer-graphic');
+      if (!graphic) return;
+      var svg = graphic.querySelector('svg');
+      function clearSvgHighlight() {
+        if (svg) svg.querySelectorAll('.hotspot-highlight').forEach(function(el) { el.classList.remove('hotspot-highlight'); });
+      }
+      function clearTextHighlight() {
+        document.querySelectorAll('.text-highlight').forEach(function(el) { el.classList.remove('text-highlight'); });
+      }
+      document.querySelectorAll('.internal-ref').forEach(function(span) {
+        var id = span.getAttribute('data-internal-ref-id');
+        if (!id) return;
+        span.addEventListener('mouseenter', function() {
+          clearSvgHighlight();
+          var el = svg && svg.querySelector('#' + CSS.escape(id));
+          if (el) el.classList.add('hotspot-highlight');
+        });
+        span.addEventListener('mouseleave', function() { clearSvgHighlight(); });
+        span.addEventListener('click', function(e) {
+          e.preventDefault();
+          clearTextHighlight();
+          span.classList.add('text-highlight');
+          span.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+      });
+      if (svg) {
+        svg.querySelectorAll('[id]').forEach(function(el) {
+          var id = el.id;
+          if (!id) return;
+          el.addEventListener('mouseenter', function() {
+            clearSvgHighlight();
+            el.classList.add('hotspot-highlight');
+          });
+          el.addEventListener('mouseleave', function() { clearSvgHighlight(); });
+          el.addEventListener('click', function() {
+            clearTextHighlight();
+            var ref = document.querySelector('.internal-ref[data-internal-ref-id="' + id + '"]');
+            if (ref) {
+              ref.classList.add('text-highlight');
+              ref.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          });
+        });
+      }
+    })();
+  </script>
 </body>
 </html>`;
 }
@@ -480,7 +614,7 @@ export async function getViewerByDmc(req: Request, res: Response): Promise<void>
 
   const fromMaximo = req.query.from === 'maximo';
   const content = parseViewerContent(dataModule.xmlContent);
-  const html = buildViewerHtml(dataModule.dmCode, content, { fromMaximo });
+  const html = buildViewerHtml(dataModule.dmCode, content, dataModule.illustrationSvg ?? null, { fromMaximo });
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 }
@@ -511,7 +645,7 @@ export async function getViewerByDmCode(req: Request, res: Response): Promise<vo
 
   const fromMaximo = req.query.from === 'maximo';
   const content = parseViewerContent(dataModule.xmlContent);
-  const html = buildViewerHtml(dataModule.dmCode, content, { fromMaximo });
+  const html = buildViewerHtml(dataModule.dmCode, content, dataModule.illustrationSvg ?? null, { fromMaximo });
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 }
