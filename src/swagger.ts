@@ -5,7 +5,7 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Škoda Transportation IPS Integration API',
+      title: 'MAXIMO Mobile Gateway API',
       version: '1.0.0',
       description: 'API for S1000D linking and S2000M provisioning data import.',
     },

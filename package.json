@@ -1,7 +1,7 @@
 {
   "name": "skoda-transportation-ips-integration",
   "version": "1.0.0",
-  "description": "Škoda Transportation IPS Integration",
+  "description": "MAXIMO Mobile Gateway | Škoda Transportation",
   "main": "dist/server.js",
   "scripts": {
     "build": "prisma generate && tsc",

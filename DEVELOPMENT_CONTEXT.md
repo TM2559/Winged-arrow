@@ -57,7 +57,7 @@ Long-term memory for AI and developers. Update this file as the project evolves.
   - **Upload XML**: `POST /api/v1/s1000d/upload` (multipart, field `xml` or `file`) → parses S1000D XML, returns `dmc`, `title`, `model`, `viewerUrl`.
 - **S2000M**
   - **Import provisioning**: `POST /api/v1/s2000m/import` with body `{ parts: [{ partNumber, description, unitOfMeasure }] }` → maps to Maximo Item Master shape, returns `success`, `imported`, `items`; **no real Maximo call** (logs payload only).
-- **Mock Viewer**: `GET /viewer/index.html?dmc=...&model=...` shows DMC/model in a simple card UI; no real CSDB or IETP.
+- **Mock Viewer**: `GET /viewer/index.html?dmc=...&model=...` shows DMC/model in a simple card UI; no real CSDB or full MAXIMO Mobile Gateway backend.
 - **Sample data**: `data/samples/S1000D_sample.xml`, `data/samples/s2000m_sample.json` for manual/API testing.
 
 **Not covered by automated tests**: no test suite (e.g. Jest/Vitest) present; features are manually verified.

@@ -14,7 +14,7 @@
 #### ✅ S1000D Documentation Linkage
 - **Dynamic URL Generation**: Middleware translates Maximo Work Order data into S1000D Data Module Codes (DMC).
 - **Context-Aware Viewing**: Automatic filtering of manuals based on Asset Model (e.g., 109E, 26Tr).
-- **Mock Viewer**: A prototype IETP (Interactive Electronic Technical Publication) viewer is ready for demonstration.
+- **Mock Viewer**: A prototype MAXIMO Mobile Gateway viewer (Smart Documentation) is ready for demonstration.
 
 #### ✅ S2000M Material Provisioning (WIP)
 - **Automated Item Master**: Service to process S2000M parts lists and map them to Maximo Item objects.

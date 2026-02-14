@@ -209,7 +209,7 @@ interface ViewerOptions {
 }
 
 /**
- * Builds a full HTML5 document with Škoda branding for the manual.
+ * Builds a full HTML5 document with MAXIMO Mobile Gateway branding for the manual.
  * Split view: text left, graphic right (sticky). Hotspots: internalRef ↔ SVG element by id.
  */
 function buildViewerHtml(
@@ -255,7 +255,9 @@ function buildViewerHtml(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(title)} – S1000D Viewer</title>
+  <title>${escapeHtml(title)} | MAXIMO Mobile Gateway</title>
+  <meta property="og:title" content="MAXIMO Mobile Gateway | Škoda Transportation">
+  <meta name="twitter:title" content="MAXIMO Mobile Gateway | Škoda Transportation">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">

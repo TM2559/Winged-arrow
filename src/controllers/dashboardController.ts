@@ -111,7 +111,9 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IETP System – Škoda Transportation</title>
+  <title>MAXIMO Mobile Gateway | Škoda Transportation</title>
+  <meta property="og:title" content="MAXIMO Mobile Gateway | Škoda Transportation">
+  <meta name="twitter:title" content="MAXIMO Mobile Gateway | Škoda Transportation">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -472,8 +474,8 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
 </head>
 <body>
   <header class="header">
-    <h1>ŠKODA TRANSPORTATION | IETP SYSTEM</h1>
-    <p>S1000D Manuals, S2000M Spare Parts &amp; S3000L Maintenance Schedule – Rolling Stock</p>
+    <h1>MAXIMO Gateway</h1>
+    <p>Welcome to MAXIMO Mobile Gateway. Integrated Maintenance Interface for Škoda Assets.</p>
   </header>
   <div class="stats-row">
     <div class="stat-card primary">

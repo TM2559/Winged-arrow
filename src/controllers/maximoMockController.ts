@@ -17,7 +17,7 @@ export async function getMaximoMock(req: Request, res: Response): Promise<void> 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IBM Maximo – Work Order Tracking</title>
+  <title>MAXIMO Mobile Gateway – Work Order Demo</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -139,7 +139,7 @@ export async function getMaximoMock(req: Request, res: Response): Promise<void> 
 </head>
 <body>
   <header class="header">
-    <h1>IBM Maximo – Work Order Tracking</h1>
+    <h1>MAXIMO Mobile Gateway – Work Order Demo</h1>
     <p>Simulation: open the linked S1000D technical manual from this work order.</p>
   </header>
   <div class="container">

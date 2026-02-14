@@ -5,7 +5,7 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  console.log('🌱 Starting ŠKODA TRANSPORTATION Cloud Seed...');
+  console.log('🌱 Starting MAXIMO Mobile Gateway seed...');
 
   // 1. CLEANUP (Smazání starých dat)
   try {
