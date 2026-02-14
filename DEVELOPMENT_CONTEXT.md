@@ -2,6 +2,8 @@
 
 Long-term memory for AI and developers. Update this file as the project evolves.
 
+- **Repository**: [https://github.com/TM2559/Winged-arrow](https://github.com/TM2559/Winged-arrow)
+
 ---
 
 ## 1. Current Project State
@@ -77,6 +79,7 @@ Long-term memory for AI and developers. Update this file as the project evolves.
 
 ## 5. Last Commit Summary
 
+**2026-02-14** — feat: Completed MVP with Native Viewer and Database persistence (Prisma/SQLite, styled HTML viewer).
 **2026-02-11** — af701f2 Initial commit: Škoda IPS-Maximo Integration MVP
 
 
