@@ -628,6 +628,9 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       });
     })();
   </script>
+  <footer style="font-family: 'Courier New', monospace; font-size: 11px; letter-spacing: 1px; color: #666; padding: 20px; text-transform: uppercase; text-align: center; margin-top: 40px;">
+    A.9FF <span style="color: #999;">//</span> 0x9ff.dev <span style="color: #999;">//</span> LOC: 10CC1
+  </footer>
 </body>
 </html>`;
 
