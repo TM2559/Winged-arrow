@@ -90,6 +90,62 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       )
       .join('') || '<tr><td colspan="5" class="empty">No maintenance tasks yet. Seed via <a href="/api/s3000l/seed">GET /api/s3000l/seed</a>.</td></tr>';
 
+    const manualsCardsHtml =
+      manuals.length > 0
+        ? manuals
+            .map(
+              (m) =>
+                `<article class="mobile-card">
+                  <div class="mobile-card-main">
+                    <strong class="mobile-card-title">${escapeHtml(m.techName ?? m.dmCode)}</strong>
+                    <p class="mobile-card-meta"><code>${escapeHtml(m.dmCode)}</code>${m.issueDate ? ` · ${escapeHtml(m.issueDate)}` : ''}</p>
+                  </div>
+                  <div class="mobile-card-actions">
+                    <button type="button" class="btn-qr" data-dmc="${escapeHtml(m.dmCode).replace(/"/g, '&quot;')}" aria-label="QR for ${escapeHtml(m.dmCode)}">QR</button>
+                    <a class="btn btn-viewer" href="/viewer?dmc=${encodeURIComponent(m.dmCode)}">Open manual</a>
+                  </div>
+                </article>`
+            )
+            .join('')
+        : '<p class="empty">No data modules yet.</p>';
+
+    const partsCardsHtml =
+      spareParts.length > 0
+        ? spareParts
+            .map(
+              (p) =>
+                `<article class="mobile-card">
+                  <div class="mobile-card-main">
+                    <strong class="mobile-card-title">${escapeHtml(p.name)}</strong>
+                    <p class="mobile-card-meta"><code>${escapeHtml(p.partNumber)}</code> · ${p.quantity} ${escapeHtml(p.unit ?? '')}</p>
+                  </div>
+                </article>`
+            )
+            .join('')
+        : '<p class="empty">No spare parts yet.</p>';
+
+    const tasksCardsHtml =
+      maintenanceTasks.length > 0
+        ? maintenanceTasks
+            .map(
+              (t) => {
+                const manualBtn = t.dm
+                  ? `<a class="btn btn-viewer" href="/viewer?dmc=${encodeURIComponent(t.dm.dmCode)}">View manual</a>`
+                  : '<span class="mobile-card-muted">—</span>';
+                const partText = t.part ? `${escapeHtml(t.part.partNumber)} – ${escapeHtml(t.part.name)}` : '—';
+                return `<article class="mobile-card">
+                  <div class="mobile-card-main">
+                    <strong class="mobile-card-title">${escapeHtml(t.description)}</strong>
+                    <p class="mobile-card-meta"><code>${escapeHtml(t.taskCode)}</code> · ${escapeHtml(t.interval)}</p>
+                    ${t.part ? `<p class="mobile-card-meta mobile-card-part">Part: ${partText}</p>` : ''}
+                  </div>
+                  <div class="mobile-card-actions">${manualBtn}</div>
+                </article>`;
+              }
+            )
+            .join('')
+        : '<p class="empty">No maintenance tasks yet.</p>';
+
     const feedbackItems =
       feedbackList.length > 0
         ? feedbackList
@@ -222,6 +278,29 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       min-width: 0;
     }
     .th-short { display: none; }
+    .cards-mobile { display: none; }
+    .mobile-card {
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #eaeff2;
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .mobile-card:last-child { margin-bottom: 0; }
+    .mobile-card-main { margin-bottom: 0.75rem; }
+    .mobile-card-main:last-child { margin-bottom: 0; }
+    .mobile-card-title { font-size: 1rem; font-weight: 600; color: #212121; display: block; margin-bottom: 0.25rem; }
+    .mobile-card-meta { font-size: 0.85rem; color: #666; margin: 0; }
+    .mobile-card-part { margin-top: 0.25rem; }
+    .mobile-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .mobile-card-actions .btn-viewer { flex: 1; min-width: 140px; text-align: center; }
+    .mobile-card-muted { font-size: 0.9rem; color: #999; }
     .btn-qr {
       min-width: 36px;
       padding: 0.35rem 0.5rem;
@@ -478,9 +557,10 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
     @media (max-width: 640px) {
       .stats-row { grid-template-columns: 1fr; padding: 0 1rem; }
       .container { padding: 0 1rem 2rem; }
+      .card .table-wrap { display: none; }
+      .cards-mobile { display: block; padding: 0 1.25rem 1.25rem; }
       .th-manual .th-full { display: none; }
       .th-manual .th-short { display: inline; }
-      .table-wrap table { min-width: 560px; }
       .btn-viewer, .btn-qr {
         min-height: 44px;
         padding: 0.6rem 1rem;
@@ -568,6 +648,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
         </tbody>
       </table>
       </div>
+      <div class="cards-mobile" aria-label="Manuals list">${manualsCardsHtml}</div>
     </section>
     <section class="card">
       <h2>Spare Parts Inventory (S2000M)</h2>
@@ -586,6 +667,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
         </tbody>
       </table>
       </div>
+      <div class="cards-mobile" aria-label="Spare parts list">${partsCardsHtml}</div>
     </section>
     <section class="card">
       <h2>Maintenance Schedule (S3000L)</h2>
@@ -606,6 +688,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
         </tbody>
       </table>
       </div>
+      <div class="cards-mobile" aria-label="Maintenance tasks list">${tasksCardsHtml}</div>
     </section>
     <section class="card">
       <h2>Quality Assurance / Technician Feedback</h2>
