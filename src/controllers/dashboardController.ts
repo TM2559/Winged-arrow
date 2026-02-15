@@ -3,6 +3,9 @@ import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { getSearchResults } from './searchController';
 
+const HOURLY_RATE = 850; // CZK (S3000L labour)
+const DEFAULT_PART_VALUE = 1200; // CZK when part value not in DB
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -10,6 +13,25 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+/** Estimated part value from task (DB or default). SparePart has no price field yet. */
+function getPartValue(task: { part?: { quantity?: number } | null }): number {
+  // When part.unitPrice or task.estimatedPartValue exists, use it here
+  return DEFAULT_PART_VALUE;
+}
+
+/** Total cost (CZK) = (duration * HOURLY_RATE) + part value */
+function taskTotalCost(
+  duration: number,
+  partValue: number
+): number {
+  return duration * HOURLY_RATE + partValue;
+}
+
+/** Format as "2 475 CZK" with thousand separators */
+function formatCostCzk(value: number): string {
+  return `${Math.round(value).toLocaleString('cs-CZ', { useGrouping: true })} CZK`;
 }
 
 /**
@@ -45,6 +67,15 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
 
     logger.info(`Dashboard: ${manuals.length} manuals, ${spareParts.length} spare parts, ${maintenanceTasks.length} maintenance tasks, ${feedbackList.length} feedback`);
 
+    // S3000L maintenance cost analytics
+    const taskCosts = maintenanceTasks.map((t) => {
+      const partVal = getPartValue(t);
+      const cost = taskTotalCost(t.duration, partVal);
+      return { task: t, partVal, cost };
+    });
+    const totalFleetValue = taskCosts.reduce((sum, { cost }) => sum + cost, 0);
+    const totalManHours = maintenanceTasks.reduce((sum, t) => sum + t.duration, 0);
+
     const manualsRows = manuals
       .map(
         (m) =>
@@ -70,9 +101,9 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       )
       .join('') || '<tr><td colspan="4" class="empty">No spare parts yet. Import via <code>POST /api/s2000m/import</code>.</td></tr>';
 
-    const tasksRows = maintenanceTasks
+    const tasksRows = taskCosts
       .map(
-        (t) => {
+        ({ task: t, cost }) => {
           const linkedManual = t.dm
             ? `<a class="btn btn-viewer" href="/viewer?dmc=${encodeURIComponent(t.dm.dmCode)}">View Manual</a>`
             : '—';
@@ -85,10 +116,11 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
             <td>${escapeHtml(t.interval)}</td>
             <td>${linkedManual}</td>
             <td>${requiredPart}</td>
+            <td class="td-cost">${formatCostCzk(cost)}</td>
           </tr>`;
         }
       )
-      .join('') || '<tr><td colspan="5" class="empty">No maintenance tasks yet. Seed via <a href="/api/s3000l/seed">GET /api/s3000l/seed</a>.</td></tr>';
+      .join('') || '<tr><td colspan="6" class="empty">No maintenance tasks yet. Seed via <a href="/api/s3000l/seed">GET /api/s3000l/seed</a>.</td></tr>';
 
     const manualsCardsHtml =
       manuals.length > 0
@@ -125,10 +157,10 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
         : '<p class="empty">No spare parts yet.</p>';
 
     const tasksCardsHtml =
-      maintenanceTasks.length > 0
-        ? maintenanceTasks
+      taskCosts.length > 0
+        ? taskCosts
             .map(
-              (t) => {
+              ({ task: t, cost }) => {
                 const manualBtn = t.dm
                   ? `<a class="btn btn-viewer" href="/viewer?dmc=${encodeURIComponent(t.dm.dmCode)}">View manual</a>`
                   : '<span class="mobile-card-muted">—</span>';
@@ -138,6 +170,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
                     <strong class="mobile-card-title">${escapeHtml(t.description)}</strong>
                     <p class="mobile-card-meta"><code>${escapeHtml(t.taskCode)}</code> · ${escapeHtml(t.interval)}</p>
                     ${t.part ? `<p class="mobile-card-meta mobile-card-part">Part: ${partText}</p>` : ''}
+                    <p class="mobile-card-meta td-cost">${formatCostCzk(cost)}</p>
                   </div>
                   <div class="mobile-card-actions">${manualBtn}</div>
                 </article>`;
@@ -459,6 +492,10 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       margin: 0 auto 1.5rem;
       padding: 0 2rem;
     }
+    .stats-row-maintenance {
+      grid-template-columns: repeat(2, 1fr);
+      margin-top: -0.5rem;
+    }
     .stat-card {
       background: #ffffff;
       border-radius: 4px;
@@ -497,6 +534,11 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       color: #666;
       margin: 0;
     }
+    .td-cost {
+      font-weight: 600;
+      color: #002855;
+    }
+    .th-cost { white-space: nowrap; }
     .modal-overlay {
       display: none;
       position: fixed;
@@ -555,7 +597,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       background: #dde1e4;
     }
     @media (max-width: 640px) {
-      .stats-row { grid-template-columns: 1fr; padding: 0 1rem; }
+      .stats-row, .stats-row-maintenance { grid-template-columns: 1fr; padding: 0 1rem; }
       .container { padding: 0 1rem 2rem; }
       .card .table-wrap { display: none; }
       .cards-mobile { display: block; padding: 0 1.25rem 1.25rem; }
@@ -597,6 +639,22 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       <div class="stat-card-body">
         <p class="stat-card-value">${feedbackCount}</p>
         <p class="stat-card-label">Technician Reports</p>
+      </div>
+    </div>
+  </div>
+  <div class="stats-row stats-row-maintenance">
+    <div class="stat-card primary">
+      <div class="stat-card-icon" aria-hidden="true">💰</div>
+      <div class="stat-card-body">
+        <p class="stat-card-value">${formatCostCzk(totalFleetValue)}</p>
+        <p class="stat-card-label">Total Fleet Maintenance Value</p>
+      </div>
+    </div>
+    <div class="stat-card success">
+      <div class="stat-card-icon" aria-hidden="true">⏱</div>
+      <div class="stat-card-body">
+        <p class="stat-card-value">${totalManHours.toLocaleString('cs-CZ', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h</p>
+        <p class="stat-card-label">Total Man-Hours Required</p>
       </div>
     </div>
   </div>
@@ -681,6 +739,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
             <th>Interval</th>
             <th class="th-manual"><span class="th-full">Linked Manual</span><span class="th-short">Manual</span></th>
             <th>Required Part</th>
+            <th class="th-cost">Est. Cost (CZK)</th>
           </tr>
         </thead>
         <tbody>
