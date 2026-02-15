@@ -214,6 +214,13 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
       background: #0082c0;
       color: #fff;
     }
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .table-wrap table {
+      min-width: 0;
+    }
     .btn-qr {
       min-width: 36px;
       padding: 0.35rem 0.5rem;
@@ -469,6 +476,16 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
     }
     @media (max-width: 640px) {
       .stats-row { grid-template-columns: 1fr; padding: 0 1rem; }
+      .container { padding: 0 1rem 2rem; }
+      .table-wrap table { min-width: 560px; }
+      .btn-viewer, .btn-qr {
+        min-height: 44px;
+        padding: 0.6rem 1rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+      }
     }
   </style>
 </head>
@@ -532,23 +549,26 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
     <p class="maximo-demo"><a href="/maximo-mock" class="btn btn-maximo">🚀 Run Maximo Demo Simulation</a></p>
     <section class="card">
       <h2>Active Manuals (S1000D)</h2>
-      <table>
+      <div class="table-wrap" role="region" aria-label="Manuals table - scroll horizontally on small screens">
+        <table>
         <thead>
           <tr>
             <th>DMC</th>
             <th>Technical Name</th>
             <th>Issue Date</th>
             <th>QR</th>
-            <th></th>
+            <th>Open</th>
           </tr>
         </thead>
         <tbody>
           ${manualsRows}
         </tbody>
       </table>
+      </div>
     </section>
     <section class="card">
       <h2>Spare Parts Inventory (S2000M)</h2>
+      <div class="table-wrap">
       <table>
         <thead>
           <tr>
@@ -562,10 +582,12 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
           ${partsRows}
         </tbody>
       </table>
+      </div>
     </section>
     <section class="card">
       <h2>Maintenance Schedule (S3000L)</h2>
       <p style="margin: 0 1.25rem 0.75rem; font-size: 0.9rem; color: #555;">Task (S3000L) → defines Method (S1000D) → uses Material (S2000M).</p>
+      <div class="table-wrap">
       <table>
         <thead>
           <tr>
@@ -580,6 +602,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
           ${tasksRows}
         </tbody>
       </table>
+      </div>
     </section>
     <section class="card">
       <h2>Quality Assurance / Technician Feedback</h2>
