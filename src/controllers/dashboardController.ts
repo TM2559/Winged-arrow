@@ -221,6 +221,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
     .table-wrap table {
       min-width: 0;
     }
+    .th-short { display: none; }
     .btn-qr {
       min-width: 36px;
       padding: 0.35rem 0.5rem;
@@ -477,6 +478,8 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
     @media (max-width: 640px) {
       .stats-row { grid-template-columns: 1fr; padding: 0 1rem; }
       .container { padding: 0 1rem 2rem; }
+      .th-manual .th-full { display: none; }
+      .th-manual .th-short { display: inline; }
       .table-wrap table { min-width: 560px; }
       .btn-viewer, .btn-qr {
         min-height: 44px;
@@ -594,7 +597,7 @@ export async function getDashboard(req: Request, res: Response): Promise<void> {
             <th>Task Code</th>
             <th>Description</th>
             <th>Interval</th>
-            <th>Linked Manual</th>
+            <th class="th-manual"><span class="th-full">Linked Manual</span><span class="th-short">Manual</span></th>
             <th>Required Part</th>
           </tr>
         </thead>
